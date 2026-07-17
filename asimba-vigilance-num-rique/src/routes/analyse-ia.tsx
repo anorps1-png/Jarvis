@@ -1,0 +1,800 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { AppLayout, PageHeader } from "@/components/AppLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { createServerFn } from "@tanstack/react-start";
+import {
+  RadialBarChart,
+  RadialBar,
+  ResponsiveContainer,
+  PolarAngleAxis,
+} from "recharts";
+import {
+  Sparkles,
+  Languages,
+  ShieldAlert,
+  TrendingUp,
+  Cpu,
+  Activity,
+  CheckCircle2,
+  AlertOctagon,
+  Search,
+  Loader2,
+  Check,
+  AlertTriangle,
+  FileSearch2,
+  XCircle,
+  Globe,
+} from "lucide-react";
+import { factChecks, type Alert } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+// Server-side Web Scraper
+const scrapeUrlFn = createServerFn({ method: "GET" })
+  .validator((url: string) => {
+    if (typeof url !== "string" || !url.startsWith("http")) {
+      throw new Error("URL invalide. L'URL doit commencer par http:// ou https://");
+    }
+    return url;
+  })
+  .handler(async ({ data: url }) => {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Le serveur distant a répondu avec le statut ${response.status}`);
+      }
+
+      const html = await response.text();
+
+      // Parse HTML text content from common tags (p, li, h1, h2)
+      const textBlocks: string[] = [];
+      const matches = html.match(/<(p|li|h1|h2)[^>]*>([\s\S]*?)<\/\1>/gi) || [];
+
+      for (const match of matches) {
+        const text = match
+          .replace(/<[^>]*>/g, "") // Strip HTML tags
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .trim();
+
+        // Filter valid sentences/lines
+        if (text.length > 25 && text.length < 250 && !text.includes("{") && !text.includes("}")) {
+          textBlocks.push(text);
+        }
+      }
+
+      return {
+        success: true,
+        comments: textBlocks.slice(0, 10), // Limit to top 10 extracted text blocks
+      };
+    } catch (err: any) {
+      console.error("[ASIMBA Scraper Error]", err);
+      return {
+        success: false,
+        error: err.message,
+      };
+    }
+  });
+
+export const Route = createFileRoute("/analyse-ia")({
+  head: () => ({
+    meta: [
+      { title: "Analyse IA & Fact-checking — ASIMBA" },
+      {
+        name: "description",
+        content: "Moteur d'analyse de désinformation : veille sur réseaux sociaux, détection d'infox et fact-checking assisté par IA.",
+      },
+    ],
+  }),
+  component: AnalyseIAPage,
+});
+
+const capacites = [
+  { label: "Détection de Fake News", value: 96, desc: "Analyse sémantique croisée", icon: FileSearch2 },
+  { label: "Analyse de sentiment", value: 94, desc: "Ton hostile / manipulateur", icon: Activity },
+  { label: "Détection multilingue", value: 92, desc: "FR · EN · Camfranglais · Pidgin", icon: Languages },
+  { label: "Vérification automatisée", value: 89, desc: "Croisement sources officielles", icon: CheckCircle2 },
+  { label: "Protection des mineurs", value: 98, desc: "Modèle de détection de harcèlement", icon: AlertOctagon },
+  { label: "Score de propagation", value: 84, desc: "Vitesse et viralité estimée", icon: TrendingUp },
+];
+
+const presetComments: Record<
+  string,
+  {
+    author: string;
+    handle: string;
+    text: string;
+    lang: "Français" | "Anglais" | "Camfranglais" | "Pidgin";
+    score: number;
+    verdict: "vrai" | "faux" | "trompeur";
+    category: string;
+    conclusion: string;
+    sources: string[];
+  }[]
+> = {
+  crtv: [
+    {
+      author: "Jean-Pierre T.",
+      handle: "@jpt12",
+      text: "Les résultats officiels du Baccalauréat 2026 sont annulés par l'OBC pour fraude massive sur l'étendue du territoire.",
+      lang: "Français",
+      score: 94,
+      verdict: "faux",
+      category: "Désinformation",
+      conclusion: "L'Office du Baccalauréat du Cameroun a formellement démenti cette rumeur. Les résultats sont maintenus.",
+      sources: ["Communiqué OBC du 17/07/2026", "MINESEC - Direction des examens"],
+    },
+    {
+      author: "Etonde K.",
+      handle: "@etonde_k",
+      text: "Dis OBC pipo don start again. Every year wuna get leaks and cancel results. Internet cut inside Bamenda tomorrow too?",
+      lang: "Pidgin",
+      score: 75,
+      verdict: "trompeur",
+      category: "Désinformation",
+      conclusion: "Il y a des retards dans certaines délibérations, mais aucune coupure d'Internet ni annulation globale n'est planifiée.",
+      sources: ["MINPOSTEL - Régulation des réseaux sociaux", "Communiqué officiel OBC"],
+    },
+    {
+      author: "Amandine M.",
+      handle: "@amandine_m",
+      text: "C'est du ndjoka complet ça, l'OBC vient de publier les vrais plannings de délibérations sur CRTV.",
+      lang: "Camfranglais",
+      score: 18,
+      verdict: "vrai",
+      category: "Vérification citoyenne",
+      conclusion: "Le planning officiel de publication des résultats a bien été communiqué par la CRTV et le MINESEC.",
+      sources: ["CRTV Web - Journal de 13h", "MINESEC"],
+    },
+  ],
+  mboabuzz: [
+    {
+      author: "Général Mboa",
+      handle: "@mboa_general",
+      text: "L'armée a bloqué tous les accès à Bépanda suite à des affrontements ethniques majeurs ce matin.",
+      lang: "Français",
+      score: 91,
+      verdict: "faux",
+      category: "Désinformation",
+      conclusion: "Un contrôle routier de routine a été mal interprété sur les réseaux sociaux. Aucun affrontement signalé.",
+      sources: ["Gendarmerie Nationale - Division Littoral", "Rapport police locale"],
+    },
+    {
+      author: "Mouf_Man",
+      handle: "@mouf_man",
+      text: "Wuna dey talk only for facebook. Military don enter Bépanda, things go hot today.",
+      lang: "Pidgin",
+      score: 75,
+      verdict: "trompeur",
+      category: "Infox locale",
+      conclusion: "Présence policière renforcée dans le cadre d'une opération de sécurisation classique, sans incident violent.",
+      sources: ["Délégation Régionale de la Sûreté Nationale"],
+    },
+  ],
+  lolycee: [
+    {
+      author: "Léonce D.",
+      handle: "@leonce_d",
+      text: "MTN offre 15 000F de crédit et 10Go de connexion gratuite pour célébrer les vacances. Cliquez vite ici : bit.ly/mtn-free-credit",
+      lang: "Français",
+      score: 97,
+      verdict: "faux",
+      category: "Escroquerie / Phishing",
+      conclusion: "Il s'agit d'une tentative d'hameçonnage visant à voler les accès Mobile Money des abonnés.",
+      sources: ["MTN Cameroon - Alerte Sécurité Clients", "ANTIC - Bulletin d'alerte cyber"],
+    },
+    {
+      author: "Bessala P.",
+      handle: "@bessala_p",
+      text: "J'ai cliqué et j'ai reçu 5 000F. Partagez le lien s'il vous plaît !",
+      lang: "Français",
+      score: 82,
+      verdict: "faux",
+      category: "Escroquerie / Phishing",
+      conclusion: "Faux témoignage généré automatiquement ou relayé par un compte compromis pour propager l'arnaque.",
+      sources: ["MTN Cameroon", "ANTIC"],
+    },
+  ],
+};
+
+function FactcheckVerdictBadge({ verdict }: { verdict: "vrai" | "faux" | "trompeur" }) {
+  const config = {
+    vrai: { c: "bg-success/10 text-success border-success/30", i: CheckCircle2, l: "Fiable / Vrai" },
+    faux: { c: "bg-destructive/10 text-destructive border-destructive/30", i: XCircle, l: "Faux / Infox" },
+    trompeur: { c: "bg-warning/15 text-[color:oklch(0.45_0.15_60)] border-warning/30", i: AlertTriangle, l: "Trompeur" },
+  } as const;
+  const { c, i: I, l } = config[verdict];
+  return (
+    <Badge variant="outline" className={cn("rounded-md font-medium text-[11px] gap-1", c)}>
+      <I className="h-3 w-3" />
+      {l}
+    </Badge>
+  );
+}
+
+function AnalyseIAPage() {
+  const [platform, setPlatform] = useState<"facebook" | "tiktok" | "x" | "scraping">("facebook");
+  const [targetUrl, setTargetUrl] = useState("facebook.com/CRTVweb");
+  const [limit, setLimit] = useState("10");
+  const [scanning, setScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanStepMsg, setScanStepMsg] = useState("");
+  const [scannedComments, setScannedComments] = useState<any[]>([]);
+  const [factcheckedIds, setFactcheckedIds] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (platform === "facebook") {
+      setTargetUrl("facebook.com/CRTVweb");
+    } else if (platform === "tiktok") {
+      setTargetUrl("@mboabuzz_officiel");
+    } else if (platform === "x") {
+      setTargetUrl("#YaoundeIncidents");
+    } else if (platform === "scraping") {
+      setTargetUrl("https://fr.wikipedia.org/wiki/Cameroun");
+    }
+  }, [platform]);
+
+  // AI evaluation engine helper
+  const evaluateText = (text: string, idx: number) => {
+    const textLower = text.toLowerCase();
+    let score = 30;
+    let verdict: "vrai" | "faux" | "trompeur" = "vrai";
+    let category = "Vérification de contenu";
+    let conclusion = "L'analyse linguistique n'a identifié aucun indicateur suspect majeur dans ce texte.";
+    let sources = ["Vérification interne ASIMBA"];
+
+    if (
+      textLower.includes("tuer") ||
+      textLower.includes("saboter") ||
+      textLower.includes("arme") ||
+      textLower.includes("attaquer") ||
+      textLower.includes("vengeance") ||
+      textLower.includes("gourdin") ||
+      textLower.includes("chasser")
+    ) {
+      score = 92;
+      verdict = "faux";
+      category = "Incitation à la violence";
+      conclusion = "Ce contenu comporte des expressions explicites de menace et d'appel à la violence physique.";
+      sources = ["BSC - Cellule de sécurité", "Rapport Gendarmerie locale"];
+    } else if (
+      textLower.includes("bac") ||
+      textLower.includes("obc") ||
+      textLower.includes("résultats") ||
+      textLower.includes("annulés") ||
+      textLower.includes("fuite") ||
+      textLower.includes("internet") ||
+      textLower.includes("coupure")
+    ) {
+      score = 88;
+      verdict = "faux";
+      category = "Désinformation";
+      conclusion = "Cette information relaie une rumeur publique démentie par les autorités éducatives / télécoms.";
+      sources = ["OBC - Communication", "MINESEC", "MINPOSTEL"];
+    } else if (
+      textLower.includes("argent") ||
+      textLower.includes("gagner") ||
+      textLower.includes("mtn") ||
+      textLower.includes("orange") ||
+      textLower.includes("crédit") ||
+      textLower.includes("loterie") ||
+      textLower.includes("arnaque") ||
+      textLower.includes("cliquez") ||
+      textLower.includes("bit.ly")
+    ) {
+      score = 97;
+      verdict = "faux";
+      category = "Escroquerie / Phishing";
+      conclusion = "Lien frauduleux imitant un service Mobile Money pour tromper les utilisateurs (Phishing).";
+      sources = ["ANTIC - Alerte Phishing", "Opérateur Telecom"];
+    } else if (
+      textLower.includes("rumeur") ||
+      textLower.includes("entendu") ||
+      textLower.includes("partager")
+    ) {
+      score = 65;
+      verdict = "trompeur";
+      category = "Infox non vérifiée";
+      conclusion = "Contenu informel sans source vérifiée partagé de façon virale sur les messageries.";
+      sources = ["Veille médias locaux"];
+    }
+
+    const lang = textLower.includes("wuna") || textLower.includes("hear") || textLower.includes("dey") ? "Pidgin"
+      : textLower.includes("ndem") || textLower.includes("ndjoka") || textLower.includes("mouf") ? "Camfranglais"
+      : "Français";
+
+    return {
+      author: `Extrait #${idx + 1}`,
+      handle: "@crawled_content",
+      text,
+      lang,
+      score,
+      verdict,
+      category,
+      conclusion,
+      sources,
+      city: "Yaoundé",
+      region: "Centre",
+    };
+  };
+
+  const startScan = async () => {
+    setScanning(true);
+    setScanProgress(0);
+    setScannedComments([]);
+    setFactcheckedIds({});
+
+    // Live Scraping Flow
+    if (platform === "scraping") {
+      if (!targetUrl.startsWith("http")) {
+        toast.error("Veuillez saisir une URL valide commençant par http:// ou https://");
+        setScanning(false);
+        return;
+      }
+
+      setScanStepMsg("Initialisation du scraper sur le serveur...");
+      setScanProgress(15);
+      await new Promise((r) => setTimeout(r, 600));
+
+      setScanStepMsg(`Connexion et téléchargement de l'HTML : ${targetUrl}...`);
+      setScanProgress(45);
+
+      try {
+        const result = await scrapeUrlFn({ data: targetUrl });
+        
+        setScanStepMsg("Extraction des textes et analyse prédictive anti-infox...");
+        setScanProgress(80);
+        await new Promise((r) => setTimeout(r, 700));
+
+        if (!result.success || !result.comments || result.comments.length === 0) {
+          throw new Error(result.error || "Aucun contenu textuel éligible extrait.");
+        }
+
+        const analyzed = result.comments.map((text, idx) => evaluateText(text, idx));
+        setScannedComments(analyzed);
+        setScanProgress(100);
+        setScanning(false);
+        toast.success("Scraping et analyse terminés", {
+          description: `${analyzed.length} paragraphes/liens extraits et analysés avec succès.`,
+        });
+      } catch (err: any) {
+        console.error(err);
+        setScanning(false);
+        toast.error("Erreur de scraping", {
+          description: `Impossible de scraper la cible : ${err.message}. Vérifiez l'URL ou essayez un autre site.`,
+        });
+      }
+      return;
+    }
+
+    // Default API / Preset Simulation Flow
+    const steps = [
+      { p: 15, msg: "Connexion sécurisée aux API de veille..." },
+      { p: 35, msg: `Ingestion de la cible : ${targetUrl}...` },
+      { p: 55, msg: "Extraction des publications et commentaires récents..." },
+      { p: 75, msg: "Lancement du classifieur de Fake News ASIMBA-AI..." },
+      { p: 90, msg: "Évaluation de la fiabilité et détection linguistique..." },
+      { p: 100, msg: "Analyse sémantique terminée." },
+    ];
+
+    for (const step of steps) {
+      await new Promise((r) => setTimeout(r, 600));
+      setScanProgress(step.p);
+      setScanStepMsg(step.msg);
+    }
+
+    let key = "crtv";
+    if (targetUrl.toLowerCase().includes("mboa")) {
+      key = "mboabuzz";
+    } else if (platform === "tiktok" || targetUrl.toLowerCase().includes("lycee") || targetUrl.toLowerCase().includes("biyem") || targetUrl.toLowerCase().includes("credit")) {
+      key = "lolycee";
+    }
+
+    setScannedComments(presetComments[key] || presetComments.crtv);
+    setScanning(false);
+    toast.success("Analyse sémantique complétée", {
+      description: `${(presetComments[key] || presetComments.crtv).length} affirmations scannées de façon prédictive.`,
+    });
+  };
+
+  const createFactcheck = (c: any, index: number) => {
+    const fcRef = `fc-scanned-${Date.now()}`;
+
+    // Add to mock-data factChecks array
+    factChecks.unshift({
+      id: fcRef,
+      affirmation: c.text,
+      statut: c.verdict,
+      confiance: c.score,
+      sources: c.sources,
+      conclusion: c.conclusion,
+      date: new Date().toISOString().split("T")[0],
+    });
+
+    setFactcheckedIds((prev) => ({ ...prev, [index]: true }));
+
+    toast.success("Fact-check créé avec succès !", {
+      description: `L'affirmation a été poussée dans la base publique de vérification.`,
+    });
+  };
+
+  return (
+    <AppLayout title="Analyse IA" subtitle="Moteur de détection de la désinformation">
+      <div className="mx-auto max-w-[1600px] px-4 py-6 lg:px-8 space-y-6">
+        <PageHeader
+          eyebrow="ASIMBA Fact-checking Engine"
+          title="Analyse IA & Veille Anti-Infox"
+          description="Détectez les fausses nouvelles en ligne, analysez la manipulation linguistique locale (Français/Pidgin/Camfranglais), et alimentez la base de Fact-checking."
+        />
+
+        <Tabs defaultValue="veille" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 max-w-[440px] mb-6">
+            <TabsTrigger value="veille">Veille & Ingestion (Scan)</TabsTrigger>
+            <TabsTrigger value="moteur">Performances Moteur</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="veille" className="space-y-6">
+            <Card className="shadow-elev-1">
+              <CardHeader>
+                <CardTitle className="text-[14px] font-semibold flex items-center gap-2">
+                  <Search className="h-4 w-4 text-primary" /> Configuration du scanner de veille
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-medium text-muted-foreground">Type de source</label>
+                    <Select
+                      value={platform}
+                      onValueChange={(val) => setPlatform(val as "facebook" | "tiktok" | "x" | "scraping")}
+                    >
+                      <SelectTrigger className="h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="facebook">Facebook (Pages publiques)</SelectItem>
+                        <SelectItem value="tiktok">TikTok (Comptes publics)</SelectItem>
+                        <SelectItem value="x">X / Twitter (Hashtags)</SelectItem>
+                        <SelectItem value="scraping">Scraping de Page Web (Crawl Réel)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-[12px] font-medium text-muted-foreground">
+                      {platform === "scraping"
+                        ? "URL absolue du site à scraper (ex: https://example.com)"
+                        : platform === "facebook"
+                        ? "Nom de la page ou URL"
+                        : platform === "tiktok"
+                        ? "Handle du compte"
+                        : "Hashtag à écouter"}
+                    </label>
+                    <Input
+                      value={targetUrl}
+                      onChange={(e) => setTargetUrl(e.target.value)}
+                      placeholder={
+                        platform === "scraping"
+                          ? "ex: https://fr.wikipedia.org/wiki/Cameroun"
+                          : platform === "facebook"
+                          ? "ex: facebook.com/CRTVweb"
+                          : platform === "tiktok"
+                          ? "ex: @mboabuzz"
+                          : "ex: #Cameroun"
+                      }
+                      className="h-10"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-medium text-muted-foreground">
+                      {platform === "scraping" ? "Méthode de scraping" : "Volume d'affirmations"}
+                    </label>
+                    {platform === "scraping" ? (
+                      <Select defaultValue="cheerio">
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Cheerio / Parser SSR" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cheerio">Cheerio / HTML Parser SSR</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Select value={limit} onValueChange={setLimit}>
+                        <SelectTrigger className="h-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10">Derniers 10 commentaires</SelectItem>
+                          <SelectItem value="50">Derniers 50 commentaires</SelectItem>
+                          <SelectItem value="100">Derniers 100 commentaires</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <Button onClick={startScan} disabled={scanning} className="h-10 gap-2 font-medium">
+                    {scanning ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" /> Scraping et analyse linguistique en cours...
+                      </>
+                    ) : (
+                      <>
+                        {platform === "scraping" ? (
+                          <>
+                            <Globe className="h-4 w-4" /> Lancer le scraping & l'analyse
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4" /> Lancer l'analyse anti-infox
+                          </>
+                        )}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {scanning && (
+              <Card className="shadow-elev-1 border border-primary/20 bg-primary/5">
+                <CardContent className="p-6 space-y-3">
+                  <div className="flex items-center justify-between text-[13px] font-medium">
+                    <span className="text-primary flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> {scanStepMsg}
+                    </span>
+                    <span className="tabular-nums">{scanProgress}%</span>
+                  </div>
+                  <Progress value={scanProgress} className="h-2" />
+                </CardContent>
+              </Card>
+            )}
+
+            {!scanning && scannedComments.length > 0 && (
+              <Card className="shadow-elev-1">
+                <CardHeader className="border-b border-border py-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-[14px] font-semibold">
+                        Affirmations collectées ({scannedComments.length} lignes analysées)
+                      </CardTitle>
+                      <p className="text-[11.5px] text-muted-foreground mt-0.5">
+                        {platform === "scraping" ? `Scraping réel actif : ${targetUrl}` : `Cible active : ${targetUrl}`} · Classification linguistique & de confiance
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-[11px] bg-success/5 text-success border-success/30">
+                      Analyse Complétée
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <div className="divide-y divide-border">
+                  {scannedComments.map((c, i) => {
+                    const isFactchecked = factcheckedIds[i];
+                    return (
+                      <div
+                        key={i}
+                        className={cn(
+                          "p-5 flex flex-col md:flex-row md:items-start justify-between gap-4 transition-colors hover:bg-muted/30",
+                          c.verdict === "faux" ? "bg-destructive/5" : c.verdict === "trompeur" ? "bg-warning/5" : ""
+                        )}
+                      >
+                        <div className="space-y-2.5 max-w-4xl">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
+                              {c.author.slice(0, 2)}
+                            </span>
+                            <span className="text-[12.5px] font-semibold">{c.author}</span>
+                            <span className="text-[11px] text-muted-foreground">{c.handle}</span>
+                            <span>·</span>
+                            <Badge variant="secondary" className="text-[10px] py-0 px-2 rounded font-medium">
+                              Langue: {c.lang}
+                            </Badge>
+                            <span>·</span>
+                            <span className="text-[11px] text-muted-foreground">
+                              Zone: {c.city} ({c.region})
+                            </span>
+                          </div>
+
+                          <p className="text-[13.5px] font-medium leading-relaxed text-foreground">
+                            « {c.text} »
+                          </p>
+
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[12px] text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <ShieldAlert className="h-3.5 w-3.5 text-primary" />
+                              Catégorie de contenu : <span className="font-semibold text-foreground">{c.category}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Activity className="h-3.5 w-3.5 text-primary" />
+                              Indice de Désinformation (Confiance IA) :{" "}
+                              <span className="font-semibold text-foreground">{c.score}%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex md:flex-col items-end gap-3 justify-between md:justify-start shrink-0">
+                          <div className="text-right">
+                            <div className="text-[10px] uppercase text-muted-foreground">Verdict prédictif</div>
+                            <FactcheckVerdictBadge verdict={c.verdict} />
+                          </div>
+
+                          {c.verdict === "faux" || c.verdict === "trompeur" ? (
+                            <Button
+                              onClick={() => createFactcheck(c, i)}
+                              disabled={isFactchecked}
+                              size="sm"
+                              className={`h-8 gap-1.5 text-[11.5px] font-medium px-3 rounded-md ${
+                                isFactchecked
+                                  ? "bg-muted text-muted-foreground border border-border"
+                                  : "bg-primary text-primary-foreground hover:bg-primary/90"
+                              }`}
+                            >
+                              {isFactchecked ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5" /> Fact-check créé
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> Créer un Fact-check
+                                </>
+                              )}
+                            </Button>
+                          ) : (
+                            <Button
+                              disabled
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-[11.5px] font-medium border-border text-muted-foreground cursor-not-allowed"
+                            >
+                              Non suspect / Vrai
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="moteur" className="space-y-6">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[380px_1fr]">
+              <Card className="shadow-elev-1">
+                <CardHeader>
+                  <CardTitle className="text-[13.5px] font-semibold">Indicateurs de Performance IA</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="relative h-[190px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadialBarChart
+                        innerRadius="70%"
+                        outerRadius="100%"
+                        data={[{ name: "fiabilite", value: 91.4, fill: "var(--color-primary)" }]}
+                        startAngle={90}
+                        endAngle={-270}
+                      >
+                        <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+                        <RadialBar background={{ fill: "var(--color-muted)" }} dataKey="value" cornerRadius={20} />
+                      </RadialBarChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Précision IA</div>
+                      <div className="text-[36px] font-semibold tabular-nums leading-none">
+                        91.4
+                        <span className="text-[16px] text-muted-foreground font-normal">%</span>
+                      </div>
+                      <Badge variant="secondary" className="mt-1">
+                        Modèle v3.2
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-[12.5px]">
+                    <Row label="Infox détectées (7j)" value="384" />
+                    <Row label="Faux positifs" value="2.3%" />
+                    <Row label="Délai moyen d'analyse" value="1.8s" />
+                    <Row label="Langue dominante" value="Français / Pidgin" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-4">
+                <Card className="shadow-elev-1">
+                  <CardHeader>
+                    <CardTitle className="text-[13.5px] font-semibold">Fiabilité des classifieurs sémantiques</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {capacites.map((c) => {
+                      const Icon = c.icon;
+                      return (
+                        <Card key={c.label} className="shadow-elev-1">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <span className="text-[13px] font-semibold tabular-nums">{c.value}%</span>
+                            </div>
+                            <div className="mt-2 text-[12.5px] font-medium">{c.label}</div>
+                            <div className="text-[11px] text-muted-foreground">{c.desc}</div>
+                            <Progress value={c.value} className="mt-2 h-1" />
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-elev-1">
+                  <CardHeader>
+                    <CardTitle className="text-[13.5px] font-semibold flex items-center gap-2">
+                      <Cpu className="h-4 w-4 text-primary" /> Trace d'exécution du classifieur Anti-Infox
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="rounded-md border border-border bg-[oklch(0.14_0.02_260)] p-3 font-mono text-[11.5px] leading-relaxed text-[oklch(0.85_0.02_140)] overflow-x-auto">
+                      <div>
+                        <span className="text-[oklch(0.65_0.02_250)]">[14:18:02]</span> veille.inbound · Message ingéré de
+                        Facebook (CRTV Web)
+                      </div>
+                      <div>
+                        <span className="text-[oklch(0.65_0.02_250)]">[14:18:03]</span> nlp.dialect_detect · Pidgin (conf=0.94)
+                      </div>
+                      <div>
+                        <span className="text-[oklch(0.65_0.02_250)]">[14:18:03]</span> search.cross_verify ·
+                        Recherche de doublons dans la base OBC...
+                      </div>
+                      <div>
+                        <span className="text-[oklch(0.85_0.16_60)]">[14:18:04]</span> classifier.disinfo · Verdict =
+                        trompeur (confiance=65%)
+                      </div>
+                      <div>
+                        <span className="text-[oklch(0.65_0.02_250)]">[14:18:05]</span> queue.suggest · Recommandé pour
+                        fact-checking immédiat
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </AppLayout>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between border-b border-border py-1.5 last:border-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-foreground">{value}</span>
+    </div>
+  );
+}

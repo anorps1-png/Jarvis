@@ -55,6 +55,7 @@ Liste des projets ou chantiers actifs sur lesquels je veux que Claude m'aide :
 - Développement du SaaS de facturation.
 - Lancement commercial du bracelet (Business plan, calculs de coûts).
 - Apprentissage continu en IA.
+- **Projet Asimba** : plateforme camerounaise de détection prédictive des risques numériques (IA multilingue français/anglais/camfranglais/pidgin, scoring de risque, tableau de bord institutionnel). Candidature au Concours National du Meilleur Projet TIC 2026 du MINPOSTEL (SIN 2026, pitch final le 30 juillet 2026). Porteur : Guyot Jean Claude Armel, équipe de 5 personnes. Plan de développement dans `Plan_Developpement_Asimba.md` (dossier parent).
 
 ---
 
