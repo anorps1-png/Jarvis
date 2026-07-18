@@ -26,7 +26,11 @@ function InstitutionsPage() {
           eyebrow="Écosystème partenaires"
           title="Institutions connectées"
           description="Ministères, agences, ONG et universités raccordés à la plateforme."
-          actions={<Button className="h-9 gap-1.5"><Plus className="h-3.5 w-3.5" /> Nouvelle institution</Button>}
+          actions={
+            <Button className="h-9 gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> Nouvelle institution
+            </Button>
+          }
         />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {institutions.map((inst) => (
@@ -36,20 +40,31 @@ function InstitutionsPage() {
                   <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary font-semibold text-[13px]">
                     {inst.sigle.slice(0, 3)}
                   </div>
-                  <Badge variant="outline" className={inst.statut === "actif" ? "text-success border-success/30 bg-success/5" : "text-muted-foreground"}>
+                  <Badge
+                    variant="outline"
+                    className={
+                      inst.statut === "actif"
+                        ? "text-success border-success/30 bg-success/5"
+                        : "text-muted-foreground"
+                    }
+                  >
                     {inst.statut === "actif" ? "Actif" : "Invité"}
                   </Badge>
                 </div>
                 <div className="mt-3">
                   <div className="text-[13.5px] font-semibold leading-tight">{inst.nom}</div>
-                  <div className="mt-0.5 text-[11.5px] font-mono text-muted-foreground">{inst.sigle}</div>
+                  <div className="mt-0.5 text-[11.5px] font-mono text-muted-foreground">
+                    {inst.sigle}
+                  </div>
                 </div>
                 <div className="mt-2 text-[12px] text-muted-foreground">{inst.role}</div>
                 <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
                   <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
                     <Users2 className="h-3.5 w-3.5" /> {inst.utilisateurs} utilisateurs
                   </div>
-                  <button className="text-[12px] font-medium text-primary hover:underline">Gérer</button>
+                  <button className="text-[12px] font-medium text-primary hover:underline">
+                    Gérer
+                  </button>
                 </div>
               </CardContent>
             </Card>

@@ -12,14 +12,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Search, Download } from "lucide-react";
 import { auditLogs, formatDateTime } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/audit")({
   beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({
-    meta: [{ title: "Journal d'audit — ASIMBA" }, { name: "description", content: "Traçabilité complète des actions effectuées sur la plateforme." }],
+    meta: [
+      { title: "Journal d'audit — ASIMBA" },
+      {
+        name: "description",
+        content: "Traçabilité complète des actions effectuées sur la plateforme.",
+      },
+    ],
   }),
   component: AuditPage,
 });
@@ -32,7 +45,11 @@ function AuditPage() {
           eyebrow="Sécurité"
           title="Journal d'audit"
           description="Chaque action sensible est enregistrée, horodatée et signée. Ces journaux sont exportables pour audit externe."
-          actions={<Button variant="outline" size="sm" className="h-9 gap-1.5"><Download className="h-3.5 w-3.5" /> Exporter le journal</Button>}
+          actions={
+            <Button variant="outline" size="sm" className="h-9 gap-1.5">
+              <Download className="h-3.5 w-3.5" /> Exporter le journal
+            </Button>
+          }
         />
         <Card className="shadow-elev-1">
           <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
@@ -40,7 +57,10 @@ function AuditPage() {
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input placeholder="Rechercher action, utilisateur, IP…" className="h-9 pl-8" />
             </div>
-            <Select defaultValue="all"><SelectTrigger className="h-9 w-[140px] text-[12px]"><SelectValue /></SelectTrigger>
+            <Select defaultValue="all">
+              <SelectTrigger className="h-9 w-[140px] text-[12px]">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les niveaux</SelectItem>
                 <SelectItem value="info">Info</SelectItem>
@@ -63,20 +83,31 @@ function AuditPage() {
             <TableBody>
               {auditLogs.map((l) => (
                 <TableRow key={l.id}>
-                  <TableCell className="font-mono text-[11.5px] text-muted-foreground">{formatDateTime(l.horodatage)}</TableCell>
+                  <TableCell className="font-mono text-[11.5px] text-muted-foreground">
+                    {formatDateTime(l.horodatage)}
+                  </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={
-                      l.niveau === "critical" ? "text-destructive border-destructive/30 bg-destructive/5"
-                      : l.niveau === "warning" ? "text-[color:oklch(0.45_0.15_60)] border-warning/40 bg-warning/10"
-                      : "text-muted-foreground"
-                    }>
+                    <Badge
+                      variant="outline"
+                      className={
+                        l.niveau === "critical"
+                          ? "text-destructive border-destructive/30 bg-destructive/5"
+                          : l.niveau === "warning"
+                            ? "text-[color:oklch(0.45_0.15_60)] border-warning/40 bg-warning/10"
+                            : "text-muted-foreground"
+                      }
+                    >
                       {l.niveau}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-[12.5px] font-medium">{l.action}</TableCell>
-                  <TableCell className="font-mono text-[11.5px] text-muted-foreground">{l.cible}</TableCell>
+                  <TableCell className="font-mono text-[11.5px] text-muted-foreground">
+                    {l.cible}
+                  </TableCell>
                   <TableCell className="text-[12px]">{l.utilisateur}</TableCell>
-                  <TableCell className="font-mono text-[11.5px] text-muted-foreground">{l.ip}</TableCell>
+                  <TableCell className="font-mono text-[11.5px] text-muted-foreground">
+                    {l.ip}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -9,7 +9,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/connexion")({
-  head: () => ({ meta: [{ title: "Connexion — ASIMBA" }, { name: "description", content: "Accès à la plateforme ASIMBA." }] }),
+  head: () => ({
+    meta: [
+      { title: "Connexion — ASIMBA" },
+      { name: "description", content: "Accès à la plateforme ASIMBA." },
+    ],
+  }),
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
     redirect: typeof search.redirect === "string" ? search.redirect : undefined,
   }),
@@ -46,13 +51,21 @@ function LoginPage() {
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
       <div className="relative hidden lg:flex flex-col justify-between bg-sidebar text-sidebar-foreground p-10 overflow-hidden">
-        <div className="absolute inset-0 opacity-40" style={{
-          backgroundImage: "radial-gradient(circle at 20% 20%, oklch(0.485 0.165 258 / 0.35), transparent 50%), radial-gradient(circle at 80% 70%, oklch(0.35 0.15 240 / 0.35), transparent 50%)",
-        }} />
-        <div className="absolute inset-0" style={{
-          backgroundImage: "linear-gradient(oklch(1 0 0 / 0.03) 1px, transparent 1px), linear-gradient(90deg, oklch(1 0 0 / 0.03) 1px, transparent 1px)",
-          backgroundSize: "32px 32px",
-        }} />
+        <div
+          className="absolute inset-0 opacity-40"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 20% 20%, oklch(0.485 0.165 258 / 0.35), transparent 50%), radial-gradient(circle at 80% 70%, oklch(0.35 0.15 240 / 0.35), transparent 50%)",
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              "linear-gradient(oklch(1 0 0 / 0.03) 1px, transparent 1px), linear-gradient(90deg, oklch(1 0 0 / 0.03) 1px, transparent 1px)",
+            backgroundSize: "32px 32px",
+          }}
+        />
         <div className="relative">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-info shadow-elev-2">
@@ -60,19 +73,24 @@ function LoginPage() {
             </div>
             <div>
               <div className="text-[17px] font-semibold">ASIMBA</div>
-              <div className="text-[11px] font-medium tracking-widest text-sidebar-muted uppercase">Risk Intelligence</div>
+              <div className="text-[11px] font-medium tracking-widest text-sidebar-muted uppercase">
+                Risk Intelligence
+              </div>
             </div>
           </div>
         </div>
         <div className="relative space-y-6 max-w-md">
           <div className="inline-flex items-center gap-2 rounded-full border border-sidebar-border bg-sidebar-accent px-3 py-1 text-[11px] font-medium text-sidebar-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-success" /> Opérationnel · République du Cameroun
+            <span className="h-1.5 w-1.5 rounded-full bg-success" /> Opérationnel · République du
+            Cameroun
           </div>
           <h1 className="text-[34px] font-semibold leading-[1.1] tracking-tight">
             Détecter, analyser et prioriser les menaces numériques à impact réel.
           </h1>
           <p className="text-[13.5px] text-sidebar-muted">
-            ASIMBA centralise les signalements citoyens, les sources publiques et les rapports institutionnels pour offrir une intelligence unifiée aux autorités et partenaires du Cameroun.
+            ASIMBA centralise les signalements citoyens, les sources publiques et les rapports
+            institutionnels pour offrir une intelligence unifiée aux autorités et partenaires du
+            Cameroun.
           </p>
           <div className="grid grid-cols-3 gap-3 pt-4 border-t border-sidebar-border">
             <Stat label="Alertes / mois" value="1 284" />
@@ -94,9 +112,15 @@ function LoginPage() {
             <div className="text-[15px] font-semibold">ASIMBA</div>
           </div>
           <div>
-            <div className="text-[11px] font-semibold tracking-[0.16em] uppercase text-primary">Accès sécurisé</div>
-            <h2 className="mt-1.5 text-[26px] font-semibold tracking-tight">Connexion à votre compte</h2>
-            <p className="mt-1.5 text-[13px] text-muted-foreground">Bienvenue. Renseignez vos identifiants pour accéder à la plateforme.</p>
+            <div className="text-[11px] font-semibold tracking-[0.16em] uppercase text-primary">
+              Accès sécurisé
+            </div>
+            <h2 className="mt-1.5 text-[26px] font-semibold tracking-tight">
+              Connexion à votre compte
+            </h2>
+            <p className="mt-1.5 text-[13px] text-muted-foreground">
+              Bienvenue. Renseignez vos identifiants pour accéder à la plateforme.
+            </p>
           </div>
 
           <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
@@ -114,7 +138,9 @@ function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <Label className="text-[12.5px]">Mot de passe</Label>
-                <a href="#" className="text-[11.5px] font-medium text-primary hover:underline">Mot de passe oublié ?</a>
+                <a href="#" className="text-[11.5px] font-medium text-primary hover:underline">
+                  Mot de passe oublié ?
+                </a>
               </div>
               <div className="relative">
                 <Input
@@ -125,7 +151,12 @@ function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-                <button type="button" onClick={() => setShow((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground" aria-label="Afficher le mot de passe">
+                <button
+                  type="button"
+                  onClick={() => setShow((s) => !s)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground"
+                  aria-label="Afficher le mot de passe"
+                >
                   {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
@@ -143,8 +174,12 @@ function LoginPage() {
               {submitting ? "Connexion…" : "Se connecter"}
             </Button>
             <div className="relative py-1">
-              <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
-              <div className="relative flex justify-center text-[11px]"><span className="bg-background px-2 text-muted-foreground">ou</span></div>
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-[11px]">
+                <span className="bg-background px-2 text-muted-foreground">ou</span>
+              </div>
             </div>
             <Button variant="outline" className="w-full h-11 gap-2 text-[13px]">
               <ShieldCheck className="h-4 w-4 text-primary" /> Se connecter via SSO institutionnel
@@ -153,12 +188,15 @@ function LoginPage() {
 
           <div className="mt-6 rounded-lg border border-border bg-muted/40 p-3 text-[11.5px] text-muted-foreground flex gap-2">
             <Sparkles className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-            Votre compte est protégé par l'authentification à deux facteurs. Un code vous sera demandé après validation.
+            Votre compte est protégé par l'authentification à deux facteurs. Un code vous sera
+            demandé après validation.
           </div>
 
           <div className="mt-8 text-center text-[12px] text-muted-foreground">
             Pas encore de compte ?{" "}
-            <a href="#" className="font-medium text-primary hover:underline">Demander un accès institutionnel</a>
+            <a href="#" className="font-medium text-primary hover:underline">
+              Demander un accès institutionnel
+            </a>
           </div>
         </div>
       </div>

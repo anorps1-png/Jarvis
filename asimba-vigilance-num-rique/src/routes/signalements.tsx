@@ -17,6 +17,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import {
   Check,
   FileText,
@@ -38,7 +39,10 @@ export const Route = createFileRoute("/signalements")({
   head: () => ({
     meta: [
       { title: "Nouveau signalement — ASIMBA" },
-      { name: "description", content: "Signaler un contenu numérique préoccupant en toute sécurité." },
+      {
+        name: "description",
+        content: "Signaler un contenu numérique préoccupant en toute sécurité.",
+      },
     ],
   }),
   component: SignalementsPage,
@@ -64,7 +68,9 @@ const contentTypes = [
 
 function SignalementsPage() {
   const [step, setStep] = useState(1);
-  const [type, setType] = useState<"lien"|"image"|"video"|"audio"|"texte"|"document">("lien");
+  const [type, setType] = useState<"lien" | "image" | "video" | "audio" | "texte" | "document">(
+    "lien",
+  );
   const [region, setRegion] = useState("Centre");
   const [ville, setVille] = useState("Yaoundé");
   const [pays, setPays] = useState("Cameroun");
@@ -72,20 +78,21 @@ function SignalementsPage() {
   const [url, setUrl] = useState("");
   const [description, setDescription] = useState("");
   const [categorie, setCategorie] = useState<string>("");
-  const [confidentialite, setConfidentialite] = useState<"anonyme"|"restreint"|"identifie">("anonyme");
+  const [confidentialite, setConfidentialite] = useState<"anonyme" | "restreint" | "identifie">(
+    "anonyme",
+  );
   const [suiviEmail, setSuiviEmail] = useState("");
   const [suiviActive, setSuiviActive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const progress = (step / steps.length) * 100;
 
-  const paysMap: Record<string,string> = { cm: "Cameroun", td: "Tchad", ga: "Gabon" };
+  const paysMap: Record<string, string> = { cm: "Cameroun", td: "Tchad", ga: "Gabon" };
 
   async function submitSignalement() {
     setSubmitting(true);
 
     const hasSupabase = !!(
-      import.meta.env.VITE_SUPABASE_URL &&
-      import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+      import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
     );
 
     if (!hasSupabase) {
@@ -158,22 +165,28 @@ function SignalementsPage() {
         reference: `#A-2026-${Math.floor(100000 + Math.random() * 900000)}`,
         titre: description.slice(0, 50) + (description.length > 50 ? "..." : ""),
         extrait: description,
-        categorie: categoryLabel as any,
+        categorie: categoryLabel as Category,
         severite: computedSeverity,
         score: computedScore,
         confiance: 90,
         statut: "nouveau",
         source: type === "lien" ? "Facebook" : "WhatsApp",
-        langue: descLower.includes("wuna") || descLower.includes("hear") || descLower.includes("don") ? "Pidgin" 
-          : descLower.includes("ndem") || descLower.includes("ndjoka") || descLower.includes("mouf") ? "Camfranglais"
-          : "Français",
+        langue:
+          descLower.includes("wuna") || descLower.includes("hear") || descLower.includes("don")
+            ? "Pidgin"
+            : descLower.includes("ndem") ||
+                descLower.includes("ndjoka") ||
+                descLower.includes("mouf")
+              ? "Camfranglais"
+              : "Français",
         ville,
         region,
         detecte: new Date().toISOString(),
         motsCles: words.length > 0 ? words : ["signalement", "citoyen"],
         propagation: computedSeverity === "critique" ? "très rapide" : "modérée",
         resume: description,
-        recommandation: "Analyse citoyenne confirmée. Transmission recommandée aux autorités compétentes.",
+        recommandation:
+          "Analyse citoyenne confirmée. Transmission recommandée aux autorités compétentes.",
       };
 
       // Add to global mutable mock array
@@ -183,21 +196,29 @@ function SignalementsPage() {
       toast.success("Signalement envoyé (Mode Simulation)", {
         description: `Référence : #${ref} · Analysé avec succès par ASIMBA-AI`,
       });
-      setStep(1); setUrl(""); setDescription(""); setCategorie(""); setGps("");
+      setStep(1);
+      setUrl("");
+      setDescription("");
+      setCategorie("");
+      setGps("");
       return;
     }
 
     // Normal Supabase flow
     const { data: userData } = await supabase.auth.getUser();
     const uid = userData.user?.id ?? null;
-    let lat: number | null = null, lng: number | null = null;
+    let lat: number | null = null,
+      lng: number | null = null;
     if (gps.includes(",")) {
       const [a, b] = gps.split(",").map((s) => Number(s.trim()));
-      if (!Number.isNaN(a) && !Number.isNaN(b)) { lat = a; lng = b; }
+      if (!Number.isNaN(a) && !Number.isNaN(b)) {
+        lat = a;
+        lng = b;
+      }
     }
     const payload = {
       type,
-      categorie: (categorie || null) as any,
+      categorie: (categorie || null) as Database["public"]["Enums"]["signalement_categorie"] | null,
       url: url || null,
       description: description || null,
       pays,
@@ -220,10 +241,12 @@ function SignalementsPage() {
       return;
     }
     toast.success("Signalement envoyé", { description: `Référence : #${data.reference}` });
-    setStep(1); setUrl(""); setDescription(""); setCategorie(""); setGps("");
+    setStep(1);
+    setUrl("");
+    setDescription("");
+    setCategorie("");
+    setGps("");
   }
-
-
 
   return (
     <AppLayout title="Signalements" subtitle="Signaler un contenu préoccupant">
@@ -237,7 +260,9 @@ function SignalementsPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
           <Card className="shadow-elev-1 h-fit">
             <CardContent className="p-4">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">Progression</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                Progression
+              </div>
               <div className="relative">
                 <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border" />
                 <div className="space-y-4">
@@ -255,10 +280,19 @@ function SignalementsPage() {
                             !active && !done && "border-border bg-card text-muted-foreground",
                           )}
                         >
-                          {done ? <Check className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
+                          {done ? (
+                            <Check className="h-3.5 w-3.5" />
+                          ) : (
+                            <Icon className="h-3.5 w-3.5" />
+                          )}
                         </div>
                         <div className="mt-1">
-                          <div className={cn("text-[12px] font-medium", active ? "text-foreground" : "text-muted-foreground")}>
+                          <div
+                            className={cn(
+                              "text-[12px] font-medium",
+                              active ? "text-foreground" : "text-muted-foreground",
+                            )}
+                          >
                             Étape {s.n}
                           </div>
                           <div className="text-[11.5px] text-muted-foreground">{s.label}</div>
@@ -269,9 +303,14 @@ function SignalementsPage() {
                 </div>
               </div>
               <div className="mt-5 h-1 rounded-full bg-muted overflow-hidden">
-                <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${progress}%` }}
+                />
               </div>
-              <div className="mt-1 text-[11px] text-muted-foreground text-right">{Math.round(progress)}%</div>
+              <div className="mt-1 text-[11px] text-muted-foreground text-right">
+                {Math.round(progress)}%
+              </div>
             </CardContent>
           </Card>
 
@@ -302,7 +341,14 @@ function SignalementsPage() {
                               : "border-border bg-card hover:border-primary/40",
                           )}
                         >
-                          <div className={cn("flex h-9 w-9 items-center justify-center rounded-md", active ? "bg-primary text-primary-foreground" : "bg-muted text-foreground")}>
+                          <div
+                            className={cn(
+                              "flex h-9 w-9 items-center justify-center rounded-md",
+                              active
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-foreground",
+                            )}
+                          >
                             <Icon className="h-4 w-4" />
                           </div>
                           <div className="text-[13px] font-semibold">{c.label}</div>
@@ -317,15 +363,26 @@ function SignalementsPage() {
               {step === 2 && (
                 <div className="space-y-4">
                   <div>
-                    <Label className="text-[12.5px] mb-1.5 block">URL ou lien de la publication</Label>
-                    <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://facebook.com/…" className="h-10" />
+                    <Label className="text-[12.5px] mb-1.5 block">
+                      URL ou lien de la publication
+                    </Label>
+                    <Input
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="https://facebook.com/…"
+                      className="h-10"
+                    />
                   </div>
                   <div>
                     <Label className="text-[12.5px] mb-1.5 block">Preuves complémentaires</Label>
                     <div className="rounded-lg border-2 border-dashed border-border p-8 text-center hover:border-primary/40 transition-colors cursor-pointer">
                       <UploadCloud className="mx-auto h-8 w-8 text-muted-foreground" />
-                      <div className="mt-2 text-[13px] font-medium">Glissez-déposez ou cliquez pour téléverser</div>
-                      <div className="mt-1 text-[11.5px] text-muted-foreground">JPG, PNG, MP4, MP3, PDF · 200 Mo max</div>
+                      <div className="mt-2 text-[13px] font-medium">
+                        Glissez-déposez ou cliquez pour téléverser
+                      </div>
+                      <div className="mt-1 text-[11.5px] text-muted-foreground">
+                        JPG, PNG, MP4, MP3, PDF · 200 Mo max
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -336,8 +393,13 @@ function SignalementsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-[12.5px] mb-1.5 block">Pays</Label>
-                      <Select value={Object.entries(paysMap).find(([,v]) => v === pays)?.[0] ?? "cm"} onValueChange={(v) => setPays(paysMap[v] ?? "Cameroun")}>
-                        <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                      <Select
+                        value={Object.entries(paysMap).find(([, v]) => v === pays)?.[0] ?? "cm"}
+                        onValueChange={(v) => setPays(paysMap[v] ?? "Cameroun")}
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="cm">Cameroun</SelectItem>
                           <SelectItem value="td">Tchad</SelectItem>
@@ -348,24 +410,43 @@ function SignalementsPage() {
                     <div>
                       <Label className="text-[12.5px] mb-1.5 block">Région</Label>
                       <Select value={region} onValueChange={setRegion}>
-                        <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-10">
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
-                          {regions.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                          {regions.map((r) => (
+                            <SelectItem key={r} value={r}>
+                              {r}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
                       <Label className="text-[12.5px] mb-1.5 block">Ville</Label>
                       <Select value={ville} onValueChange={setVille}>
-                        <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-10">
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
-                          {Object.keys(villes).map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                          {Object.keys(villes).map((v) => (
+                            <SelectItem key={v} value={v}>
+                              {v}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-[12.5px] mb-1.5 block">Coordonnées GPS (optionnel)</Label>
-                      <Input value={gps} onChange={(e) => setGps(e.target.value)} placeholder="3.8480, 11.5021" className="h-10 font-mono text-[12px]" />
+                      <Label className="text-[12.5px] mb-1.5 block">
+                        Coordonnées GPS (optionnel)
+                      </Label>
+                      <Input
+                        value={gps}
+                        onChange={(e) => setGps(e.target.value)}
+                        placeholder="3.8480, 11.5021"
+                        className="h-10 font-mono text-[12px]"
+                      />
                     </div>
                   </div>
                   <div className="rounded-md border border-border bg-muted/40 p-3 text-[11.5px] text-muted-foreground">
@@ -386,12 +467,16 @@ function SignalementsPage() {
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Décrivez ce que vous avez observé : contexte, personnes visées, propagation, dates, etc."
                     />
-                    <div className="mt-1 text-[11px] text-muted-foreground text-right">{description.length} / 2000</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground text-right">
+                      {description.length} / 2000
+                    </div>
                   </div>
                   <div>
                     <Label className="text-[12.5px] mb-1.5 block">Catégorie suspectée</Label>
                     <Select value={categorie} onValueChange={setCategorie}>
-                      <SelectTrigger className="h-10"><SelectValue placeholder="Sélectionner une catégorie" /></SelectTrigger>
+                      <SelectTrigger className="h-10">
+                        <SelectValue placeholder="Sélectionner une catégorie" />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="violence">Incitation à la violence</SelectItem>
                         <SelectItem value="desinformation">Désinformation</SelectItem>
@@ -407,11 +492,27 @@ function SignalementsPage() {
 
               {step === 5 && (
                 <div className="space-y-4">
-                  <RadioGroup value={confidentialite} onValueChange={(v) => setConfidentialite(v as typeof confidentialite)} className="space-y-2">
+                  <RadioGroup
+                    value={confidentialite}
+                    onValueChange={(v) => setConfidentialite(v as typeof confidentialite)}
+                    className="space-y-2"
+                  >
                     {[
-                      { v: "anonyme", t: "Anonyme", d: "Aucune information personnelle n'est enregistrée." },
-                      { v: "restreint", t: "Restreint", d: "Seuls les analystes autorisés voient votre identité." },
-                      { v: "identifie", t: "Identifié", d: "Votre identité est visible pour un meilleur suivi." },
+                      {
+                        v: "anonyme",
+                        t: "Anonyme",
+                        d: "Aucune information personnelle n'est enregistrée.",
+                      },
+                      {
+                        v: "restreint",
+                        t: "Restreint",
+                        d: "Seuls les analystes autorisés voient votre identité.",
+                      },
+                      {
+                        v: "identifie",
+                        t: "Identifié",
+                        d: "Votre identité est visible pour un meilleur suivi.",
+                      },
                     ].map((o) => (
                       <label
                         key={o.v}
@@ -429,12 +530,20 @@ function SignalementsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-[12.5px] font-medium">Recevoir un suivi par email</div>
-                        <div className="text-[11px] text-muted-foreground">Vous serez notifié de l'avancement de votre signalement.</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Vous serez notifié de l'avancement de votre signalement.
+                        </div>
                       </div>
                       <Switch checked={suiviActive} onCheckedChange={setSuiviActive} />
                     </div>
                     {suiviActive && (
-                      <Input type="email" value={suiviEmail} onChange={(e) => setSuiviEmail(e.target.value)} placeholder="votre@email.com" className="h-10" />
+                      <Input
+                        type="email"
+                        value={suiviEmail}
+                        onChange={(e) => setSuiviEmail(e.target.value)}
+                        placeholder="votre@email.com"
+                        className="h-10"
+                      />
                     )}
                   </div>
                 </div>
@@ -448,22 +557,37 @@ function SignalementsPage() {
                         <Check className="h-4 w-4" />
                       </div>
                       <div>
-                        <div className="text-[13.5px] font-semibold">Signalement prêt à être envoyé</div>
-                        <div className="text-[11.5px] text-muted-foreground">Vérifiez les informations ci-dessous.</div>
+                        <div className="text-[13.5px] font-semibold">
+                          Signalement prêt à être envoyé
+                        </div>
+                        <div className="text-[11.5px] text-muted-foreground">
+                          Vérifiez les informations ci-dessous.
+                        </div>
                       </div>
                     </div>
                   </div>
                   <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-[12.5px]">
-                    <Row label="Type" value={contentTypes.find((c) => c.id === type)?.label ?? ""} />
+                    <Row
+                      label="Type"
+                      value={contentTypes.find((c) => c.id === type)?.label ?? ""}
+                    />
                     <Row label="Région" value={region} />
                     <Row label="Ville" value={ville} />
-                    <Row label="Confidentialité" value={confidentialite === "anonyme" ? "Anonyme" : confidentialite === "restreint" ? "Restreint" : "Identifié"} />
+                    <Row
+                      label="Confidentialité"
+                      value={
+                        confidentialite === "anonyme"
+                          ? "Anonyme"
+                          : confidentialite === "restreint"
+                            ? "Restreint"
+                            : "Identifié"
+                      }
+                    />
                     <Row label="Catégorie" value={categorie || "—"} />
                     <Row label="Preuves" value={url ? "1 lien" : "—"} />
                   </dl>
                 </div>
               )}
-
 
               <div className="flex items-center justify-between border-t border-border pt-4">
                 <Button
@@ -475,12 +599,16 @@ function SignalementsPage() {
                   <ArrowLeft className="h-3.5 w-3.5" /> Précédent
                 </Button>
                 {step < steps.length ? (
-                  <Button onClick={() => setStep((s) => Math.min(steps.length, s + 1))} className="gap-1.5">
+                  <Button
+                    onClick={() => setStep((s) => Math.min(steps.length, s + 1))}
+                    className="gap-1.5"
+                  >
                     Continuer <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 ) : (
                   <Button onClick={submitSignalement} disabled={submitting} className="gap-1.5">
-                    {submitting ? "Envoi…" : "Envoyer le signalement"} <Check className="h-3.5 w-3.5" />
+                    {submitting ? "Envoi…" : "Envoyer le signalement"}{" "}
+                    <Check className="h-3.5 w-3.5" />
                   </Button>
                 )}
               </div>

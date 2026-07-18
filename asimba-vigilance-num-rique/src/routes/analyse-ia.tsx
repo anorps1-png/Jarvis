@@ -15,12 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { createServerFn } from "@tanstack/react-start";
-import {
-  RadialBarChart,
-  RadialBar,
-  ResponsiveContainer,
-  PolarAngleAxis,
-} from "recharts";
+import { RadialBarChart, RadialBar, ResponsiveContainer, PolarAngleAxis } from "recharts";
 import {
   Sparkles,
   Languages,
@@ -80,7 +75,13 @@ function isBlockedHost(hostname: string): boolean {
   if (!host || BLOCKED_HOSTNAMES.has(host)) return true;
   if (host.endsWith(".local") || host.endsWith(".internal")) return true;
   // IPv6 : non spécifié, loopback, link-local (fe80::/10), unique-local (fc00::/7)
-  if (host === "::" || host === "::1" || host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) {
+  if (
+    host === "::" ||
+    host === "::1" ||
+    host.startsWith("fe80:") ||
+    host.startsWith("fc") ||
+    host.startsWith("fd")
+  ) {
     return true;
   }
   if (isPrivateIPv4(host)) return true;
@@ -168,7 +169,8 @@ async function fetchHtmlSafely(rawUrl: string): Promise<string> {
       break;
     }
     if (!response) throw new Error("Aucune réponse du serveur distant.");
-    if (!response.ok) throw new Error(`Le serveur distant a répondu avec le statut ${response.status}.`);
+    if (!response.ok)
+      throw new Error(`Le serveur distant a répondu avec le statut ${response.status}.`);
     const contentType = response.headers.get("content-type") ?? "";
     if (contentType && !/text\/html|text\/plain|application\/xhtml/i.test(contentType)) {
       throw new Error("Le contenu récupéré n'est pas une page web exploitable.");
@@ -213,7 +215,7 @@ const scrapeUrlFn = createServerFn({ method: "GET" })
         success: true,
         comments: textBlocks.slice(0, 10), // Limit to top 10 extracted text blocks
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[ASIMBA Scraper Error]", err);
       // On ne renvoie au client qu'un message contrôlé (les messages de validation
       // d'URL le sont), jamais les détails d'erreurs réseau internes.
@@ -225,8 +227,9 @@ const scrapeUrlFn = createServerFn({ method: "GET" })
         "Trop de redirections.",
         "Le contenu récupéré n'est pas une page web exploitable.",
       ];
-      const message = safeMessages.includes(err?.message)
-        ? err.message
+      const errMessage = err instanceof Error ? err.message : undefined;
+      const message = safeMessages.includes(errMessage ?? "")
+        ? errMessage
         : "Impossible de récupérer cette URL.";
       return { success: false, error: message };
     }
@@ -239,7 +242,8 @@ export const Route = createFileRoute("/analyse-ia")({
       { title: "Analyse IA & Fact-checking — ASIMBA" },
       {
         name: "description",
-        content: "Moteur d'analyse de désinformation : veille sur réseaux sociaux, détection d'infox et fact-checking assisté par IA.",
+        content:
+          "Moteur d'analyse de désinformation : veille sur réseaux sociaux, détection d'infox et fact-checking assisté par IA.",
       },
     ],
   }),
@@ -247,28 +251,54 @@ export const Route = createFileRoute("/analyse-ia")({
 });
 
 const capacites = [
-  { label: "Détection de Fake News", value: 96, desc: "Analyse sémantique croisée", icon: FileSearch2 },
+  {
+    label: "Détection de Fake News",
+    value: 96,
+    desc: "Analyse sémantique croisée",
+    icon: FileSearch2,
+  },
   { label: "Analyse de sentiment", value: 94, desc: "Ton hostile / manipulateur", icon: Activity },
-  { label: "Détection multilingue", value: 92, desc: "FR · EN · Camfranglais · Pidgin", icon: Languages },
-  { label: "Vérification automatisée", value: 89, desc: "Croisement sources officielles", icon: CheckCircle2 },
-  { label: "Protection des mineurs", value: 98, desc: "Modèle de détection de harcèlement", icon: AlertOctagon },
-  { label: "Score de propagation", value: 84, desc: "Vitesse et viralité estimée", icon: TrendingUp },
+  {
+    label: "Détection multilingue",
+    value: 92,
+    desc: "FR · EN · Camfranglais · Pidgin",
+    icon: Languages,
+  },
+  {
+    label: "Vérification automatisée",
+    value: 89,
+    desc: "Croisement sources officielles",
+    icon: CheckCircle2,
+  },
+  {
+    label: "Protection des mineurs",
+    value: 98,
+    desc: "Modèle de détection de harcèlement",
+    icon: AlertOctagon,
+  },
+  {
+    label: "Score de propagation",
+    value: 84,
+    desc: "Vitesse et viralité estimée",
+    icon: TrendingUp,
+  },
 ];
 
-const presetComments: Record<
-  string,
-  {
-    author: string;
-    handle: string;
-    text: string;
-    lang: "Français" | "Anglais" | "Camfranglais" | "Pidgin";
-    score: number;
-    verdict: "vrai" | "faux" | "trompeur";
-    category: string;
-    conclusion: string;
-    sources: string[];
-  }[]
-> = {
+type ScannedComment = {
+  author: string;
+  handle: string;
+  text: string;
+  lang: "Français" | "Anglais" | "Camfranglais" | "Pidgin";
+  score: number;
+  verdict: "vrai" | "faux" | "trompeur";
+  category: string;
+  conclusion: string;
+  sources: string[];
+  city?: string;
+  region?: string;
+};
+
+const presetComments: Record<string, ScannedComment[]> = {
   crtv: [
     {
       author: "Jean-Pierre T.",
@@ -278,7 +308,8 @@ const presetComments: Record<
       score: 94,
       verdict: "faux",
       category: "Désinformation",
-      conclusion: "L'Office du Baccalauréat du Cameroun a formellement démenti cette rumeur. Les résultats sont maintenus.",
+      conclusion:
+        "L'Office du Baccalauréat du Cameroun a formellement démenti cette rumeur. Les résultats sont maintenus.",
       sources: ["Communiqué OBC du 17/07/2026", "MINESEC - Direction des examens"],
     },
     {
@@ -289,7 +320,8 @@ const presetComments: Record<
       score: 75,
       verdict: "trompeur",
       category: "Désinformation",
-      conclusion: "Il y a des retards dans certaines délibérations, mais aucune coupure d'Internet ni annulation globale n'est planifiée.",
+      conclusion:
+        "Il y a des retards dans certaines délibérations, mais aucune coupure d'Internet ni annulation globale n'est planifiée.",
       sources: ["MINPOSTEL - Régulation des réseaux sociaux", "Communiqué officiel OBC"],
     },
     {
@@ -300,7 +332,8 @@ const presetComments: Record<
       score: 18,
       verdict: "vrai",
       category: "Vérification citoyenne",
-      conclusion: "Le planning officiel de publication des résultats a bien été communiqué par la CRTV et le MINESEC.",
+      conclusion:
+        "Le planning officiel de publication des résultats a bien été communiqué par la CRTV et le MINESEC.",
       sources: ["CRTV Web - Journal de 13h", "MINESEC"],
     },
   ],
@@ -313,7 +346,8 @@ const presetComments: Record<
       score: 91,
       verdict: "faux",
       category: "Désinformation",
-      conclusion: "Un contrôle routier de routine a été mal interprété sur les réseaux sociaux. Aucun affrontement signalé.",
+      conclusion:
+        "Un contrôle routier de routine a été mal interprété sur les réseaux sociaux. Aucun affrontement signalé.",
       sources: ["Gendarmerie Nationale - Division Littoral", "Rapport police locale"],
     },
     {
@@ -324,7 +358,8 @@ const presetComments: Record<
       score: 75,
       verdict: "trompeur",
       category: "Infox locale",
-      conclusion: "Présence policière renforcée dans le cadre d'une opération de sécurisation classique, sans incident violent.",
+      conclusion:
+        "Présence policière renforcée dans le cadre d'une opération de sécurisation classique, sans incident violent.",
       sources: ["Délégation Régionale de la Sûreté Nationale"],
     },
   ],
@@ -337,7 +372,8 @@ const presetComments: Record<
       score: 97,
       verdict: "faux",
       category: "Escroquerie / Phishing",
-      conclusion: "Il s'agit d'une tentative d'hameçonnage visant à voler les accès Mobile Money des abonnés.",
+      conclusion:
+        "Il s'agit d'une tentative d'hameçonnage visant à voler les accès Mobile Money des abonnés.",
       sources: ["MTN Cameroon - Alerte Sécurité Clients", "ANTIC - Bulletin d'alerte cyber"],
     },
     {
@@ -348,7 +384,8 @@ const presetComments: Record<
       score: 82,
       verdict: "faux",
       category: "Escroquerie / Phishing",
-      conclusion: "Faux témoignage généré automatiquement ou relayé par un compte compromis pour propager l'arnaque.",
+      conclusion:
+        "Faux témoignage généré automatiquement ou relayé par un compte compromis pour propager l'arnaque.",
       sources: ["MTN Cameroon", "ANTIC"],
     },
   ],
@@ -356,9 +393,21 @@ const presetComments: Record<
 
 function FactcheckVerdictBadge({ verdict }: { verdict: "vrai" | "faux" | "trompeur" }) {
   const config = {
-    vrai: { c: "bg-success/10 text-success border-success/30", i: CheckCircle2, l: "Fiable / Vrai" },
-    faux: { c: "bg-destructive/10 text-destructive border-destructive/30", i: XCircle, l: "Faux / Infox" },
-    trompeur: { c: "bg-warning/15 text-[color:oklch(0.45_0.15_60)] border-warning/30", i: AlertTriangle, l: "Trompeur" },
+    vrai: {
+      c: "bg-success/10 text-success border-success/30",
+      i: CheckCircle2,
+      l: "Fiable / Vrai",
+    },
+    faux: {
+      c: "bg-destructive/10 text-destructive border-destructive/30",
+      i: XCircle,
+      l: "Faux / Infox",
+    },
+    trompeur: {
+      c: "bg-warning/15 text-[color:oklch(0.45_0.15_60)] border-warning/30",
+      i: AlertTriangle,
+      l: "Trompeur",
+    },
   } as const;
   const { c, i: I, l } = config[verdict];
   return (
@@ -376,7 +425,7 @@ function AnalyseIAPage() {
   const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanStepMsg, setScanStepMsg] = useState("");
-  const [scannedComments, setScannedComments] = useState<any[]>([]);
+  const [scannedComments, setScannedComments] = useState<ScannedComment[]>([]);
   const [factcheckedIds, setFactcheckedIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -397,7 +446,8 @@ function AnalyseIAPage() {
     let score = 30;
     let verdict: "vrai" | "faux" | "trompeur" = "vrai";
     let category = "Vérification de contenu";
-    let conclusion = "L'analyse linguistique n'a identifié aucun indicateur suspect majeur dans ce texte.";
+    let conclusion =
+      "L'analyse linguistique n'a identifié aucun indicateur suspect majeur dans ce texte.";
     let sources = ["Vérification interne ASIMBA"];
 
     if (
@@ -412,7 +462,8 @@ function AnalyseIAPage() {
       score = 92;
       verdict = "faux";
       category = "Incitation à la violence";
-      conclusion = "Ce contenu comporte des expressions explicites de menace et d'appel à la violence physique.";
+      conclusion =
+        "Ce contenu comporte des expressions explicites de menace et d'appel à la violence physique.";
       sources = ["BSC - Cellule de sécurité", "Rapport Gendarmerie locale"];
     } else if (
       textLower.includes("bac") ||
@@ -426,7 +477,8 @@ function AnalyseIAPage() {
       score = 88;
       verdict = "faux";
       category = "Désinformation";
-      conclusion = "Cette information relaie une rumeur publique démentie par les autorités éducatives / télécoms.";
+      conclusion =
+        "Cette information relaie une rumeur publique démentie par les autorités éducatives / télécoms.";
       sources = ["OBC - Communication", "MINESEC", "MINPOSTEL"];
     } else if (
       textLower.includes("argent") ||
@@ -442,7 +494,8 @@ function AnalyseIAPage() {
       score = 97;
       verdict = "faux";
       category = "Escroquerie / Phishing";
-      conclusion = "Lien frauduleux imitant un service Mobile Money pour tromper les utilisateurs (Phishing).";
+      conclusion =
+        "Lien frauduleux imitant un service Mobile Money pour tromper les utilisateurs (Phishing).";
       sources = ["ANTIC - Alerte Phishing", "Opérateur Telecom"];
     } else if (
       textLower.includes("rumeur") ||
@@ -452,13 +505,17 @@ function AnalyseIAPage() {
       score = 65;
       verdict = "trompeur";
       category = "Infox non vérifiée";
-      conclusion = "Contenu informel sans source vérifiée partagé de façon virale sur les messageries.";
+      conclusion =
+        "Contenu informel sans source vérifiée partagé de façon virale sur les messageries.";
       sources = ["Veille médias locaux"];
     }
 
-    const lang = textLower.includes("wuna") || textLower.includes("hear") || textLower.includes("dey") ? "Pidgin"
-      : textLower.includes("ndem") || textLower.includes("ndjoka") || textLower.includes("mouf") ? "Camfranglais"
-      : "Français";
+    const lang: ScannedComment["lang"] =
+      textLower.includes("wuna") || textLower.includes("hear") || textLower.includes("dey")
+        ? "Pidgin"
+        : textLower.includes("ndem") || textLower.includes("ndjoka") || textLower.includes("mouf")
+          ? "Camfranglais"
+          : "Français";
 
     return {
       author: `Extrait #${idx + 1}`,
@@ -498,7 +555,7 @@ function AnalyseIAPage() {
 
       try {
         const result = await scrapeUrlFn({ data: targetUrl });
-        
+
         setScanStepMsg("Extraction des textes et analyse prédictive anti-infox...");
         setScanProgress(80);
         await new Promise((r) => setTimeout(r, 700));
@@ -514,11 +571,12 @@ function AnalyseIAPage() {
         toast.success("Scraping et analyse terminés", {
           description: `${analyzed.length} paragraphes/liens extraits et analysés avec succès.`,
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
         setScanning(false);
+        const message = err instanceof Error ? err.message : String(err);
         toast.error("Erreur de scraping", {
-          description: `Impossible de scraper la cible : ${err.message}. Vérifiez l'URL ou essayez un autre site.`,
+          description: `Impossible de scraper la cible : ${message}. Vérifiez l'URL ou essayez un autre site.`,
         });
       }
       return;
@@ -543,7 +601,12 @@ function AnalyseIAPage() {
     let key = "crtv";
     if (targetUrl.toLowerCase().includes("mboa")) {
       key = "mboabuzz";
-    } else if (platform === "tiktok" || targetUrl.toLowerCase().includes("lycee") || targetUrl.toLowerCase().includes("biyem") || targetUrl.toLowerCase().includes("credit")) {
+    } else if (
+      platform === "tiktok" ||
+      targetUrl.toLowerCase().includes("lycee") ||
+      targetUrl.toLowerCase().includes("biyem") ||
+      targetUrl.toLowerCase().includes("credit")
+    ) {
       key = "lolycee";
     }
 
@@ -554,14 +617,15 @@ function AnalyseIAPage() {
     });
   };
 
-  const createFactcheck = (c: any, index: number) => {
+  const createFactcheck = (c: ScannedComment, index: number) => {
     const fcRef = `fc-scanned-${Date.now()}`;
 
     // Add to mock-data factChecks array
     factChecks.unshift({
       id: fcRef,
       affirmation: c.text,
-      statut: c.verdict,
+      // Le bouton qui déclenche createFactcheck n'est rendu que pour "faux"/"trompeur".
+      statut: c.verdict as "faux" | "trompeur",
       confiance: c.score,
       sources: c.sources,
       conclusion: c.conclusion,
@@ -600,10 +664,14 @@ function AnalyseIAPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-[12px] font-medium text-muted-foreground">Type de source</label>
+                    <label className="text-[12px] font-medium text-muted-foreground">
+                      Type de source
+                    </label>
                     <Select
                       value={platform}
-                      onValueChange={(val) => setPlatform(val as "facebook" | "tiktok" | "x" | "scraping")}
+                      onValueChange={(val) =>
+                        setPlatform(val as "facebook" | "tiktok" | "x" | "scraping")
+                      }
                     >
                       <SelectTrigger className="h-10">
                         <SelectValue />
@@ -622,10 +690,10 @@ function AnalyseIAPage() {
                       {platform === "scraping"
                         ? "URL absolue du site à scraper (ex: https://example.com)"
                         : platform === "facebook"
-                        ? "Nom de la page ou URL"
-                        : platform === "tiktok"
-                        ? "Handle du compte"
-                        : "Hashtag à écouter"}
+                          ? "Nom de la page ou URL"
+                          : platform === "tiktok"
+                            ? "Handle du compte"
+                            : "Hashtag à écouter"}
                     </label>
                     <Input
                       value={targetUrl}
@@ -634,10 +702,10 @@ function AnalyseIAPage() {
                         platform === "scraping"
                           ? "ex: https://fr.wikipedia.org/wiki/Cameroun"
                           : platform === "facebook"
-                          ? "ex: facebook.com/CRTVweb"
-                          : platform === "tiktok"
-                          ? "ex: @mboabuzz"
-                          : "ex: #Cameroun"
+                            ? "ex: facebook.com/CRTVweb"
+                            : platform === "tiktok"
+                              ? "ex: @mboabuzz"
+                              : "ex: #Cameroun"
                       }
                       className="h-10"
                     />
@@ -672,10 +740,15 @@ function AnalyseIAPage() {
                 </div>
 
                 <div className="flex justify-end pt-2">
-                  <Button onClick={startScan} disabled={scanning} className="h-10 gap-2 font-medium">
+                  <Button
+                    onClick={startScan}
+                    disabled={scanning}
+                    className="h-10 gap-2 font-medium"
+                  >
                     {scanning ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" /> Scraping et analyse linguistique en cours...
+                        <Loader2 className="h-4 w-4 animate-spin" /> Scraping et analyse
+                        linguistique en cours...
                       </>
                     ) : (
                       <>
@@ -718,10 +791,16 @@ function AnalyseIAPage() {
                         Affirmations collectées ({scannedComments.length} lignes analysées)
                       </CardTitle>
                       <p className="text-[11.5px] text-muted-foreground mt-0.5">
-                        {platform === "scraping" ? `Scraping réel actif : ${targetUrl}` : `Cible active : ${targetUrl}`} · Classification linguistique & de confiance
+                        {platform === "scraping"
+                          ? `Scraping réel actif : ${targetUrl}`
+                          : `Cible active : ${targetUrl}`}{" "}
+                        · Classification linguistique & de confiance
                       </p>
                     </div>
-                    <Badge variant="outline" className="text-[11px] bg-success/5 text-success border-success/30">
+                    <Badge
+                      variant="outline"
+                      className="text-[11px] bg-success/5 text-success border-success/30"
+                    >
                       Analyse Complétée
                     </Badge>
                   </div>
@@ -735,7 +814,11 @@ function AnalyseIAPage() {
                         key={i}
                         className={cn(
                           "p-5 flex flex-col md:flex-row md:items-start justify-between gap-4 transition-colors hover:bg-muted/30",
-                          c.verdict === "faux" ? "bg-destructive/5" : c.verdict === "trompeur" ? "bg-warning/5" : ""
+                          c.verdict === "faux"
+                            ? "bg-destructive/5"
+                            : c.verdict === "trompeur"
+                              ? "bg-warning/5"
+                              : "",
                         )}
                       >
                         <div className="space-y-2.5 max-w-4xl">
@@ -746,7 +829,10 @@ function AnalyseIAPage() {
                             <span className="text-[12.5px] font-semibold">{c.author}</span>
                             <span className="text-[11px] text-muted-foreground">{c.handle}</span>
                             <span>·</span>
-                            <Badge variant="secondary" className="text-[10px] py-0 px-2 rounded font-medium">
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] py-0 px-2 rounded font-medium"
+                            >
                               Langue: {c.lang}
                             </Badge>
                             <span>·</span>
@@ -762,7 +848,8 @@ function AnalyseIAPage() {
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[12px] text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <ShieldAlert className="h-3.5 w-3.5 text-primary" />
-                              Catégorie de contenu : <span className="font-semibold text-foreground">{c.category}</span>
+                              Catégorie de contenu :{" "}
+                              <span className="font-semibold text-foreground">{c.category}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <Activity className="h-3.5 w-3.5 text-primary" />
@@ -774,7 +861,9 @@ function AnalyseIAPage() {
 
                         <div className="flex md:flex-col items-end gap-3 justify-between md:justify-start shrink-0">
                           <div className="text-right">
-                            <div className="text-[10px] uppercase text-muted-foreground">Verdict prédictif</div>
+                            <div className="text-[10px] uppercase text-muted-foreground">
+                              Verdict prédictif
+                            </div>
                             <FactcheckVerdictBadge verdict={c.verdict} />
                           </div>
 
@@ -822,7 +911,9 @@ function AnalyseIAPage() {
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[380px_1fr]">
               <Card className="shadow-elev-1">
                 <CardHeader>
-                  <CardTitle className="text-[13.5px] font-semibold">Indicateurs de Performance IA</CardTitle>
+                  <CardTitle className="text-[13.5px] font-semibold">
+                    Indicateurs de Performance IA
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="relative h-[190px]">
@@ -835,11 +926,17 @@ function AnalyseIAPage() {
                         endAngle={-270}
                       >
                         <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-                        <RadialBar background={{ fill: "var(--color-muted)" }} dataKey="value" cornerRadius={20} />
+                        <RadialBar
+                          background={{ fill: "var(--color-muted)" }}
+                          dataKey="value"
+                          cornerRadius={20}
+                        />
                       </RadialBarChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Précision IA</div>
+                      <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">
+                        Précision IA
+                      </div>
                       <div className="text-[36px] font-semibold tabular-nums leading-none">
                         91.4
                         <span className="text-[16px] text-muted-foreground font-normal">%</span>
@@ -862,7 +959,9 @@ function AnalyseIAPage() {
               <div className="space-y-4">
                 <Card className="shadow-elev-1">
                   <CardHeader>
-                    <CardTitle className="text-[13.5px] font-semibold">Fiabilité des classifieurs sémantiques</CardTitle>
+                    <CardTitle className="text-[13.5px] font-semibold">
+                      Fiabilité des classifieurs sémantiques
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {capacites.map((c) => {
@@ -874,7 +973,9 @@ function AnalyseIAPage() {
                               <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
                                 <Icon className="h-4 w-4" />
                               </div>
-                              <span className="text-[13px] font-semibold tabular-nums">{c.value}%</span>
+                              <span className="text-[13px] font-semibold tabular-nums">
+                                {c.value}%
+                              </span>
                             </div>
                             <div className="mt-2 text-[12.5px] font-medium">{c.label}</div>
                             <div className="text-[11px] text-muted-foreground">{c.desc}</div>
@@ -889,29 +990,31 @@ function AnalyseIAPage() {
                 <Card className="shadow-elev-1">
                   <CardHeader>
                     <CardTitle className="text-[13.5px] font-semibold flex items-center gap-2">
-                      <Cpu className="h-4 w-4 text-primary" /> Trace d'exécution du classifieur Anti-Infox
+                      <Cpu className="h-4 w-4 text-primary" /> Trace d'exécution du classifieur
+                      Anti-Infox
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="rounded-md border border-border bg-[oklch(0.14_0.02_260)] p-3 font-mono text-[11.5px] leading-relaxed text-[oklch(0.85_0.02_140)] overflow-x-auto">
                       <div>
-                        <span className="text-[oklch(0.65_0.02_250)]">[14:18:02]</span> veille.inbound · Message ingéré de
-                        Facebook (CRTV Web)
+                        <span className="text-[oklch(0.65_0.02_250)]">[14:18:02]</span>{" "}
+                        veille.inbound · Message ingéré de Facebook (CRTV Web)
                       </div>
                       <div>
-                        <span className="text-[oklch(0.65_0.02_250)]">[14:18:03]</span> nlp.dialect_detect · Pidgin (conf=0.94)
+                        <span className="text-[oklch(0.65_0.02_250)]">[14:18:03]</span>{" "}
+                        nlp.dialect_detect · Pidgin (conf=0.94)
                       </div>
                       <div>
-                        <span className="text-[oklch(0.65_0.02_250)]">[14:18:03]</span> search.cross_verify ·
-                        Recherche de doublons dans la base OBC...
+                        <span className="text-[oklch(0.65_0.02_250)]">[14:18:03]</span>{" "}
+                        search.cross_verify · Recherche de doublons dans la base OBC...
                       </div>
                       <div>
-                        <span className="text-[oklch(0.85_0.16_60)]">[14:18:04]</span> classifier.disinfo · Verdict =
-                        trompeur (confiance=65%)
+                        <span className="text-[oklch(0.85_0.16_60)]">[14:18:04]</span>{" "}
+                        classifier.disinfo · Verdict = trompeur (confiance=65%)
                       </div>
                       <div>
-                        <span className="text-[oklch(0.65_0.02_250)]">[14:18:05]</span> queue.suggest · Recommandé pour
-                        fact-checking immédiat
+                        <span className="text-[oklch(0.65_0.02_250)]">[14:18:05]</span>{" "}
+                        queue.suggest · Recommandé pour fact-checking immédiat
                       </div>
                     </div>
                   </CardContent>

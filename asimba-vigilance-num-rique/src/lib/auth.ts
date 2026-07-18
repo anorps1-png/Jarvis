@@ -19,7 +19,9 @@ export async function requireAuth(location: { href: string }) {
   }
 }
 
-function displayName(user: { email?: string | null; user_metadata?: Record<string, unknown> } | null | undefined) {
+function displayName(
+  user: { email?: string | null; user_metadata?: Record<string, unknown> } | null | undefined,
+) {
   if (!user) return null;
   const full = user.user_metadata?.full_name;
   return (typeof full === "string" && full.trim()) || user.email || null;
@@ -27,7 +29,10 @@ function displayName(user: { email?: string | null; user_metadata?: Record<strin
 
 export function initialsFrom(name: string | null): string {
   if (!name) return "?";
-  const parts = name.replace(/@.*/, "").split(/[\s._-]+/).filter(Boolean);
+  const parts = name
+    .replace(/@.*/, "")
+    .split(/[\s._-]+/)
+    .filter(Boolean);
   const letters = (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "");
   return (letters || name[0] || "?").toUpperCase();
 }

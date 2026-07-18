@@ -37,11 +37,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { notifications as notifs } from "@/lib/mock-data";
 import { useCurrentUser, useSignOut, initialsFrom } from "@/lib/auth";
 
@@ -106,13 +102,7 @@ function BrandMark({ collapsed = false }: { collapsed?: boolean }) {
   );
 }
 
-function SidebarNav({
-  collapsed,
-  onNavigate,
-}: {
-  collapsed: boolean;
-  onNavigate?: () => void;
-}) {
+function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
@@ -125,10 +115,7 @@ function SidebarNav({
             </div>
           )}
           {section.items.map((item) => {
-            const active =
-              item.to === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.to);
+            const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
             const Icon = item.icon;
             return (
               <Link
@@ -182,7 +169,9 @@ function SidebarFooter({ collapsed }: { collapsed: boolean }) {
     return (
       <div className="flex items-center justify-center px-2 py-3 border-t border-sidebar-border">
         <Avatar className="h-8 w-8 ring-2 ring-sidebar-accent">
-          <AvatarFallback className="bg-primary text-primary-foreground text-xs">{initials}</AvatarFallback>
+          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+            {initials}
+          </AvatarFallback>
         </Avatar>
       </div>
     );
@@ -191,7 +180,9 @@ function SidebarFooter({ collapsed }: { collapsed: boolean }) {
     <div className="border-t border-sidebar-border p-3">
       <div className="flex items-center gap-2.5 rounded-lg bg-sidebar-accent/50 p-2.5">
         <Avatar className="h-9 w-9">
-          <AvatarFallback className="bg-primary text-primary-foreground text-xs">{initials}</AvatarFallback>
+          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+            {initials}
+          </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-medium text-sidebar-foreground">
@@ -235,7 +226,11 @@ function SidebarInner({
             className="hidden lg:flex h-7 w-7 items-center justify-center rounded-md text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
             aria-label="Réduire la barre latérale"
           >
-            {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+            {collapsed ? (
+              <ChevronsRight className="h-4 w-4" />
+            ) : (
+              <ChevronsLeft className="h-4 w-4" />
+            )}
           </button>
         )}
       </div>
@@ -302,7 +297,15 @@ function NotificationsMenu() {
   );
 }
 
-function Topbar({ title, subtitle, actions }: { title?: string; subtitle?: string; actions?: ReactNode }) {
+function Topbar({
+  title,
+  subtitle,
+  actions,
+}: {
+  title?: string;
+  subtitle?: string;
+  actions?: ReactNode;
+}) {
   const { name, email } = useCurrentUser();
   const signOut = useSignOut();
   const initials = initialsFrom(name ?? email);
@@ -310,7 +313,9 @@ function Topbar({ title, subtitle, actions }: { title?: string; subtitle?: strin
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-card/80 backdrop-blur px-4 lg:px-6">
       <MobileNavTrigger />
       <div className="hidden md:flex flex-col leading-tight min-w-0">
-        {title && <div className="text-[13.5px] font-semibold text-foreground truncate">{title}</div>}
+        {title && (
+          <div className="text-[13.5px] font-semibold text-foreground truncate">{title}</div>
+        )}
         {subtitle && <div className="text-[11.5px] text-muted-foreground truncate">{subtitle}</div>}
       </div>
       <div className="flex-1" />
@@ -335,11 +340,15 @@ function Topbar({ title, subtitle, actions }: { title?: string; subtitle?: strin
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 rounded-md border border-border bg-card px-1.5 py-1 hover:bg-accent">
               <Avatar className="h-7 w-7">
-                <AvatarFallback className="bg-primary text-primary-foreground text-[11px]">{initials}</AvatarFallback>
+                <AvatarFallback className="bg-primary text-primary-foreground text-[11px]">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
               <div className="hidden md:flex flex-col text-left leading-tight pr-1">
                 <span className="text-[12px] font-medium">{name ?? "Non connecté"}</span>
-                <span className="text-[10px] text-muted-foreground max-w-[140px] truncate">{email ?? "—"}</span>
+                <span className="text-[10px] text-muted-foreground max-w-[140px] truncate">
+                  {email ?? "—"}
+                </span>
               </div>
             </button>
           </DropdownMenuTrigger>
@@ -448,7 +457,10 @@ export function SeverityBadge({ level }: { level: "critique" | "eleve" | "moyen"
   } as const;
   const label = { critique: "Critique", eleve: "Élevé", moyen: "Moyen", faible: "Faible" }[level];
   return (
-    <Badge className={cn("rounded-md ring-1 font-medium tracking-tight", map[level])} variant="outline">
+    <Badge
+      className={cn("rounded-md ring-1 font-medium tracking-tight", map[level])}
+      variant="outline"
+    >
       {label}
     </Badge>
   );

@@ -26,8 +26,12 @@ export const Route = createFileRoute("/carte")({
 
 // SVG map viewBox tuned to Cameroon bounding box
 // lon 8.5 - 16.2  |  lat 1.6 - 13.1
-const LON_MIN = 8.4, LON_MAX = 16.3, LAT_MIN = 1.5, LAT_MAX = 13.2;
-const W = 500, H = 620;
+const LON_MIN = 8.4,
+  LON_MAX = 16.3,
+  LAT_MIN = 1.5,
+  LAT_MAX = 13.2;
+const W = 500,
+  H = 620;
 function project(lat: number, lng: number) {
   const x = ((lng - LON_MIN) / (LON_MAX - LON_MIN)) * W;
   const y = H - ((lat - LAT_MIN) / (LAT_MAX - LAT_MIN)) * H;
@@ -49,7 +53,9 @@ function CartePage() {
           actions={
             <>
               <Select defaultValue="all">
-                <SelectTrigger className="h-9 w-[160px] text-[12.5px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 w-[160px] text-[12.5px]">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Toutes catégories</SelectItem>
                   <SelectItem value="v">Incitation à la violence</SelectItem>
@@ -57,7 +63,9 @@ function CartePage() {
                   <SelectItem value="h">Harcèlement</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5"><Download className="h-3.5 w-3.5" /> Exporter</Button>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5">
+                <Download className="h-3.5 w-3.5" /> Exporter
+              </Button>
             </>
           }
         />
@@ -66,15 +74,29 @@ function CartePage() {
           <Card className="shadow-elev-1 relative overflow-hidden">
             <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between border-b border-border bg-card/80 backdrop-blur px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <button className="rounded-md px-2.5 py-1 text-[11.5px] font-medium bg-primary text-primary-foreground">Chaleur</button>
-                <button className="rounded-md px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted">Marqueurs</button>
-                <button className="rounded-md px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted">Clusters</button>
+                <button className="rounded-md px-2.5 py-1 text-[11.5px] font-medium bg-primary text-primary-foreground">
+                  Chaleur
+                </button>
+                <button className="rounded-md px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted">
+                  Marqueurs
+                </button>
+                <button className="rounded-md px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted">
+                  Clusters
+                </button>
               </div>
               <div className="flex items-center gap-1">
-                <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted"><PlusIcon className="h-3.5 w-3.5" /></button>
-                <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted"><Minus className="h-3.5 w-3.5" /></button>
-                <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted"><Layers className="h-3.5 w-3.5" /></button>
-                <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted"><Maximize2 className="h-3.5 w-3.5" /></button>
+                <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted">
+                  <PlusIcon className="h-3.5 w-3.5" />
+                </button>
+                <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+                <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted">
+                  <Layers className="h-3.5 w-3.5" />
+                </button>
+                <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted">
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
             <div className="relative h-[640px] w-full bg-gradient-to-br from-[oklch(0.97_0.01_240)] via-background to-[oklch(0.95_0.02_220)]">
@@ -91,11 +113,22 @@ function CartePage() {
                     <stop offset="100%" stopColor="var(--color-warning)" stopOpacity="0" />
                   </radialGradient>
                   <pattern id="grid-p" width="24" height="24" patternUnits="userSpaceOnUse">
-                    <path d="M 24 0 L 0 0 0 24" fill="none" stroke="var(--color-border)" strokeWidth="0.5" opacity="0.5" />
+                    <path
+                      d="M 24 0 L 0 0 0 24"
+                      fill="none"
+                      stroke="var(--color-border)"
+                      strokeWidth="0.5"
+                      opacity="0.5"
+                    />
                   </pattern>
                 </defs>
                 <rect width={W} height={H} fill="url(#grid-p)" />
-                <path d={CAMEROON_PATH} fill="var(--color-card)" stroke="var(--color-border)" strokeWidth="1.5" />
+                <path
+                  d={CAMEROON_PATH}
+                  fill="var(--color-card)"
+                  stroke="var(--color-border)"
+                  strokeWidth="1.5"
+                />
 
                 {/* Heat blobs */}
                 {Object.entries(villes).map(([name, coords], i) => {
@@ -103,7 +136,13 @@ function CartePage() {
                   const intensity = 40 + ((i * 13) % 50);
                   const isCrit = i % 3 === 0;
                   return (
-                    <circle key={name} cx={x} cy={y} r={intensity} fill={isCrit ? "url(#heat-critical)" : "url(#heat-warn)"} />
+                    <circle
+                      key={name}
+                      cx={x}
+                      cy={y}
+                      r={intensity}
+                      fill={isCrit ? "url(#heat-critical)" : "url(#heat-warn)"}
+                    />
                   );
                 })}
 
@@ -113,15 +152,33 @@ function CartePage() {
                   const isCrit = i % 3 === 0;
                   return (
                     <g key={name + "m"}>
-                      <circle cx={x} cy={y} r={4} fill={isCrit ? "var(--color-destructive)" : "var(--color-warning)"} stroke="white" strokeWidth="1.5" />
-                      <text x={x + 8} y={y + 3} fontSize="10" fill="var(--color-foreground)" fontFamily="Inter" fontWeight="500">{name}</text>
+                      <circle
+                        cx={x}
+                        cy={y}
+                        r={4}
+                        fill={isCrit ? "var(--color-destructive)" : "var(--color-warning)"}
+                        stroke="white"
+                        strokeWidth="1.5"
+                      />
+                      <text
+                        x={x + 8}
+                        y={y + 3}
+                        fontSize="10"
+                        fill="var(--color-foreground)"
+                        fontFamily="Inter"
+                        fontWeight="500"
+                      >
+                        {name}
+                      </text>
                     </g>
                   );
                 })}
               </svg>
 
               <div className="absolute bottom-4 left-4 rounded-lg border border-border bg-card/95 backdrop-blur p-3 shadow-elev-2">
-                <div className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Niveau de risque</div>
+                <div className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Niveau de risque
+                </div>
                 {[
                   { c: "var(--color-destructive)", l: "Critique" },
                   { c: "var(--color-warning)", l: "Élevé" },
@@ -139,13 +196,22 @@ function CartePage() {
 
           <Card className="shadow-elev-1">
             <div className="border-b border-border p-4">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Zones à surveiller</div>
-              <div className="mt-2 text-[13.5px] font-semibold">Yaoundé <SeverityBadge level="critique" /></div>
-              <div className="mt-2 text-[11.5px] text-muted-foreground">23 alertes actives · +15% vs semaine passée</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Zones à surveiller
+              </div>
+              <div className="mt-2 text-[13.5px] font-semibold">
+                Yaoundé <SeverityBadge level="critique" />
+              </div>
+              <div className="mt-2 text-[11.5px] text-muted-foreground">
+                23 alertes actives · +15% vs semaine passée
+              </div>
             </div>
             <CardContent className="p-0">
               {regionsData.slice(0, 8).map((r) => (
-                <div key={r.region} className="flex items-center justify-between border-b border-border px-4 py-2.5 last:border-0 hover:bg-muted/40">
+                <div
+                  key={r.region}
+                  className="flex items-center justify-between border-b border-border px-4 py-2.5 last:border-0 hover:bg-muted/40"
+                >
                   <div>
                     <div className="text-[12.5px] font-medium">{r.region}</div>
                     <div className="text-[11px] text-muted-foreground">{r.critiques} critiques</div>
@@ -167,7 +233,9 @@ function CartePage() {
                 <span className="h-2 w-2 rounded-full bg-destructive" />
                 <div className="min-w-0 flex-1">
                   <div className="text-[12.5px] font-medium truncate">{a.titre}</div>
-                  <div className="text-[11px] text-muted-foreground">{a.ville}, {a.region} · {a.source}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {a.ville}, {a.region} · {a.source}
+                  </div>
                 </div>
                 <SeverityBadge level={a.severite} />
               </div>

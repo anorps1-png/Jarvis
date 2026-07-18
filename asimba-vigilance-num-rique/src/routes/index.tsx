@@ -60,7 +60,10 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Tableau de bord — ASIMBA" },
-      { name: "description", content: "Vue d'ensemble opérationnelle des risques numériques détectés au Cameroun." },
+      {
+        name: "description",
+        content: "Vue d'ensemble opérationnelle des risques numériques détectés au Cameroun.",
+      },
     ],
   }),
   component: DashboardPage,
@@ -109,9 +112,7 @@ function KpiCard({
             <span
               className={cn(
                 "inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 font-medium",
-                delta >= 0
-                  ? "bg-success/10 text-success"
-                  : "bg-destructive/10 text-destructive",
+                delta >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive",
               )}
             >
               {delta >= 0 ? (
@@ -205,12 +206,48 @@ function DashboardPage() {
         />
 
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-6">
-          <KpiCard label="Alertes totales" value={kpis.alertesTotales.toLocaleString("fr-FR")} delta={kpis.alertesTotalesDelta} icon={FileText} />
-          <KpiCard label="Critiques" value={kpis.critiques} delta={kpis.critiquesDelta} icon={Flame} tone="danger" />
-          <KpiCard label="En cours" value={kpis.enCours} delta={kpis.enCoursDelta} icon={Clock} tone="warning" />
-          <KpiCard label="Résolues" value={kpis.resolues} delta={kpis.resoluesDelta} icon={CheckCircle2} tone="success" />
-          <KpiCard label="Temps moyen" value={kpis.tempsMoyen} delta={kpis.tempsMoyenDelta} icon={Activity} tone="info" hint="temps de traitement" />
-          <KpiCard label="Confiance IA" value={`${kpis.confianceIA}%`} icon={Sparkles} tone="info" hint="moyenne 7j" />
+          <KpiCard
+            label="Alertes totales"
+            value={kpis.alertesTotales.toLocaleString("fr-FR")}
+            delta={kpis.alertesTotalesDelta}
+            icon={FileText}
+          />
+          <KpiCard
+            label="Critiques"
+            value={kpis.critiques}
+            delta={kpis.critiquesDelta}
+            icon={Flame}
+            tone="danger"
+          />
+          <KpiCard
+            label="En cours"
+            value={kpis.enCours}
+            delta={kpis.enCoursDelta}
+            icon={Clock}
+            tone="warning"
+          />
+          <KpiCard
+            label="Résolues"
+            value={kpis.resolues}
+            delta={kpis.resoluesDelta}
+            icon={CheckCircle2}
+            tone="success"
+          />
+          <KpiCard
+            label="Temps moyen"
+            value={kpis.tempsMoyen}
+            delta={kpis.tempsMoyenDelta}
+            icon={Activity}
+            tone="info"
+            hint="temps de traitement"
+          />
+          <KpiCard
+            label="Confiance IA"
+            value={`${kpis.confianceIA}%`}
+            icon={Sparkles}
+            tone="info"
+            hint="moyenne 7j"
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -231,10 +268,28 @@ function DashboardPage() {
           >
             <div className="h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={evolutionSeries} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
-                  <CartesianGrid stroke="var(--color-border)" vertical={false} strokeDasharray="3 3" />
-                  <XAxis dataKey="jour" stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
+                <LineChart
+                  data={evolutionSeries}
+                  margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    stroke="var(--color-border)"
+                    vertical={false}
+                    strokeDasharray="3 3"
+                  />
+                  <XAxis
+                    dataKey="jour"
+                    stroke="var(--color-muted-foreground)"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="var(--color-muted-foreground)"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                  />
                   <Tooltip
                     contentStyle={{
                       background: "var(--color-card)",
@@ -243,10 +298,38 @@ function DashboardPage() {
                       fontSize: 12,
                     }}
                   />
-                  <Line type="monotone" dataKey="critiques" stroke="var(--color-destructive)" strokeWidth={2} dot={false} name="Critiques" />
-                  <Line type="monotone" dataKey="elevees" stroke="var(--color-warning)" strokeWidth={2} dot={false} name="Élevées" />
-                  <Line type="monotone" dataKey="moyennes" stroke="var(--color-info)" strokeWidth={2} dot={false} name="Moyennes" />
-                  <Line type="monotone" dataKey="faibles" stroke="var(--color-muted-foreground)" strokeWidth={2} dot={false} name="Faibles" />
+                  <Line
+                    type="monotone"
+                    dataKey="critiques"
+                    stroke="var(--color-destructive)"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Critiques"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="elevees"
+                    stroke="var(--color-warning)"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Élevées"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="moyennes"
+                    stroke="var(--color-info)"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Moyennes"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="faibles"
+                    stroke="var(--color-muted-foreground)"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Faibles"
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -263,7 +346,14 @@ function DashboardPage() {
               <div className="h-[180px] w-[180px] shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={sourcesData} dataKey="part" nameKey="nom" innerRadius={48} outerRadius={78} paddingAngle={2}>
+                    <Pie
+                      data={sourcesData}
+                      dataKey="part"
+                      nameKey="nom"
+                      innerRadius={48}
+                      outerRadius={78}
+                      paddingAngle={2}
+                    >
                       {sourcesData.map((s, i) => (
                         <Cell key={i} fill={s.couleur} />
                       ))}
@@ -286,7 +376,9 @@ function DashboardPage() {
                       <span className="h-2 w-2 rounded-full" style={{ background: s.couleur }} />
                       <span className="text-foreground">{s.nom}</span>
                     </div>
-                    <span className="font-medium tabular-nums text-muted-foreground">{s.part}%</span>
+                    <span className="font-medium tabular-nums text-muted-foreground">
+                      {s.part}%
+                    </span>
                   </div>
                 ))}
               </div>
@@ -298,11 +390,38 @@ function DashboardPage() {
           <ChartCard title="Catégories les plus signalées" className="lg:col-span-2">
             <div className="h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={categoriesData} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
-                  <CartesianGrid stroke="var(--color-border)" vertical={false} strokeDasharray="3 3" />
-                  <XAxis dataKey="nom" stroke="var(--color-muted-foreground)" fontSize={10.5} tickLine={false} axisLine={false} interval={0} />
-                  <YAxis stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} axisLine={false} unit="%" />
-                  <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }} />
+                <BarChart
+                  data={categoriesData}
+                  margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    stroke="var(--color-border)"
+                    vertical={false}
+                    strokeDasharray="3 3"
+                  />
+                  <XAxis
+                    dataKey="nom"
+                    stroke="var(--color-muted-foreground)"
+                    fontSize={10.5}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={0}
+                  />
+                  <YAxis
+                    stroke="var(--color-muted-foreground)"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    unit="%"
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--color-card)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                  />
                   <Bar dataKey="part" radius={[6, 6, 0, 0]} fill="var(--color-primary)" />
                 </BarChart>
               </ResponsiveContainer>
@@ -312,18 +431,53 @@ function DashboardPage() {
           <ChartCard title="Répartition régionale">
             <div className="h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={regionsData.slice(0, 8)} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+                <AreaChart
+                  data={regionsData.slice(0, 8)}
+                  margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+                >
                   <defs>
                     <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.4} />
                       <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke="var(--color-border)" vertical={false} strokeDasharray="3 3" />
-                  <XAxis dataKey="region" stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} axisLine={false} interval={0} angle={-20} textAnchor="end" height={50} />
-                  <YAxis stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }} />
-                  <Area type="monotone" dataKey="alertes" stroke="var(--color-primary)" strokeWidth={2} fill="url(#grad)" />
+                  <CartesianGrid
+                    stroke="var(--color-border)"
+                    vertical={false}
+                    strokeDasharray="3 3"
+                  />
+                  <XAxis
+                    dataKey="region"
+                    stroke="var(--color-muted-foreground)"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={0}
+                    angle={-20}
+                    textAnchor="end"
+                    height={50}
+                  />
+                  <YAxis
+                    stroke="var(--color-muted-foreground)"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--color-card)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="alertes"
+                    stroke="var(--color-primary)"
+                    strokeWidth={2}
+                    fill="url(#grad)"
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -333,7 +487,9 @@ function DashboardPage() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card className="shadow-elev-1 lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-[13.5px] font-semibold">Alertes critiques récentes</CardTitle>
+              <CardTitle className="text-[13.5px] font-semibold">
+                Alertes critiques récentes
+              </CardTitle>
               <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-[12px]">
                 <Filter className="h-3.5 w-3.5" /> Filtres
               </Button>
@@ -341,28 +497,41 @@ function DashboardPage() {
             <CardContent className="p-0">
               <div className="divide-y divide-border">
                 {critiques.map((a) => (
-                  <div key={a.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-muted/40 transition-colors">
+                  <div
+                    key={a.id}
+                    className="flex items-start gap-3 px-5 py-3.5 hover:bg-muted/40 transition-colors"
+                  >
                     <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-destructive/10">
                       <AlertTriangle className="h-4 w-4 text-destructive" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[11px] font-mono text-muted-foreground">{a.reference}</span>
+                        <span className="text-[11px] font-mono text-muted-foreground">
+                          {a.reference}
+                        </span>
                         <SeverityBadge level={a.severite} />
                         <StatusPill status={a.statut} />
                       </div>
-                      <div className="mt-1 text-[13px] font-medium text-foreground truncate">{a.titre}</div>
+                      <div className="mt-1 text-[13px] font-medium text-foreground truncate">
+                        {a.titre}
+                      </div>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11.5px] text-muted-foreground">
                         <span>{a.source}</span>
                         <span>·</span>
-                        <span>{a.ville}, {a.region}</span>
+                        <span>
+                          {a.ville}, {a.region}
+                        </span>
                         <span>·</span>
                         <span>Détecté à {formatTime(a.detecte)}</span>
                       </div>
                     </div>
                     <div className="hidden md:flex flex-col items-end gap-1">
-                      <div className="text-[10.5px] font-semibold tracking-wider text-muted-foreground uppercase">Score</div>
-                      <div className="text-[16px] font-semibold tabular-nums text-destructive">{a.score}</div>
+                      <div className="text-[10.5px] font-semibold tracking-wider text-muted-foreground uppercase">
+                        Score
+                      </div>
+                      <div className="text-[16px] font-semibold tabular-nums text-destructive">
+                        {a.score}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -372,7 +541,9 @@ function DashboardPage() {
 
           <Card className="shadow-elev-1">
             <CardHeader>
-              <CardTitle className="text-[13.5px] font-semibold">Analystes les plus actifs</CardTitle>
+              <CardTitle className="text-[13.5px] font-semibold">
+                Analystes les plus actifs
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3.5">
               {topAnalystes.map((a, i) => (
@@ -387,9 +558,13 @@ function DashboardPage() {
                     </div>
                     <div className="mt-1 flex items-center gap-2">
                       <Progress value={a.score} className="h-1.5" />
-                      <span className="text-[10.5px] tabular-nums text-muted-foreground">{a.score}%</span>
+                      <span className="text-[10.5px] tabular-nums text-muted-foreground">
+                        {a.score}%
+                      </span>
                     </div>
-                    <div className="mt-0.5 text-[10.5px] text-muted-foreground">Temps moyen · {a.moyenne}</div>
+                    <div className="mt-0.5 text-[10.5px] text-muted-foreground">
+                      Temps moyen · {a.moyenne}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -414,7 +589,9 @@ function DashboardPage() {
                     <span className="hidden md:inline text-[11px] text-muted-foreground">
                       {a.source} · {a.ville}
                     </span>
-                    <span className="text-[11px] font-mono text-muted-foreground">{formatTime(a.detecte)}</span>
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      {formatTime(a.detecte)}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -454,17 +631,33 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   );
 }
 
-function SystemRow({ label, status, tone }: { label: string; status: string; tone: "success" | "warning" | "danger" }) {
+function SystemRow({
+  label,
+  status,
+  tone,
+}: {
+  label: string;
+  status: string;
+  tone: "success" | "warning" | "danger";
+}) {
   const toneMap = {
     success: "bg-success text-success",
     warning: "bg-warning text-[color:oklch(0.45_0.15_60)]",
     danger: "bg-destructive text-destructive",
   } as const;
-  const bg = { success: "bg-success/10", warning: "bg-warning/15", danger: "bg-destructive/10" }[tone];
+  const bg = { success: "bg-success/10", warning: "bg-warning/15", danger: "bg-destructive/10" }[
+    tone
+  ];
   return (
     <div className="flex items-center justify-between text-[12.5px]">
       <span className="text-foreground">{label}</span>
-      <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium", bg, toneMap[tone].split(" ")[1])}>
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium",
+          bg,
+          toneMap[tone].split(" ")[1],
+        )}
+      >
         <span className={cn("h-1.5 w-1.5 rounded-full", toneMap[tone].split(" ")[0])} />
         {status}
       </span>

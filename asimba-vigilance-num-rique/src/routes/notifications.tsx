@@ -9,7 +9,10 @@ import { notifications } from "@/lib/mock-data";
 export const Route = createFileRoute("/notifications")({
   beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({
-    meta: [{ title: "Notifications — ASIMBA" }, { name: "description", content: "Historique et préférences de notification." }],
+    meta: [
+      { title: "Notifications — ASIMBA" },
+      { name: "description", content: "Historique et préférences de notification." },
+    ],
   }),
   component: NotifPage,
 });
@@ -22,12 +25,24 @@ function NotifPage() {
           eyebrow="Centre de notifications"
           title="Toutes vos notifications"
           description="Alertes système, assignations, décisions IA et messages des partenaires."
-          actions={<Button variant="outline" size="sm" className="h-9">Tout marquer comme lu</Button>}
+          actions={
+            <Button variant="outline" size="sm" className="h-9">
+              Tout marquer comme lu
+            </Button>
+          }
         />
         <Card className="shadow-elev-1 divide-y divide-border">
           {[...notifications, ...notifications].map((n, i) => (
-            <div key={i} className={cn("flex gap-3 p-4 hover:bg-muted/40", !n.lu && "bg-accent/20")}>
-              <div className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", n.type === "critique" ? "bg-destructive" : "bg-primary")} />
+            <div
+              key={i}
+              className={cn("flex gap-3 p-4 hover:bg-muted/40", !n.lu && "bg-accent/20")}
+            >
+              <div
+                className={cn(
+                  "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+                  n.type === "critique" ? "bg-destructive" : "bg-primary",
+                )}
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-[13px] font-medium truncate">{n.titre}</div>

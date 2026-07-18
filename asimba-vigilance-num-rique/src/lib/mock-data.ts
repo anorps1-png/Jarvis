@@ -130,7 +130,8 @@ const titres: Array<Omit<Alert, "id" | "reference" | "detecte" | "analyste">> = 
     propagation: "modérée",
     resume:
       "Cyberharcèlement organisé, éléments constitutifs d'atteinte à la vie privée d'une mineure.",
-    recommandation: "Signaler à la plateforme et transmettre à la Brigade Spéciale de la Cybercriminalité.",
+    recommandation:
+      "Signaler à la plateforme et transmettre à la Brigade Spéciale de la Cybercriminalité.",
   },
   {
     titre: "Rumeur sur une coupure d'Internet nationale",
@@ -206,8 +207,7 @@ const titres: Array<Omit<Alert, "id" | "reference" | "detecte" | "analyste">> = 
   },
   {
     titre: "Discours de haine ethnique dans un live",
-    extrait:
-      "Direct Facebook avec propos ciblant une communauté ethnique. 14 signalements reçus.",
+    extrait: "Direct Facebook avec propos ciblant une communauté ethnique. 14 signalements reçus.",
     categorie: "Discours de haine",
     severite: "eleve",
     score: 83,
@@ -379,15 +379,78 @@ export const institutions = [
 ];
 
 export const utilisateurs = [
-  { nom: "Armel Guyot", email: "armel.guyot@asimba.cm", role: "Administrateur", institution: "ANTIC", statut: "actif", derniere: "il y a 3 min" },
-  { nom: "Nadège Mbarga", email: "n.mbarga@asimba.cm", role: "Analyste senior", institution: "ANTIC", statut: "actif", derniere: "il y a 12 min" },
-  { nom: "Serge Ekambi", email: "s.ekambi@asimba.cm", role: "Analyste", institution: "BSC", statut: "actif", derniere: "il y a 1 h" },
-  { nom: "Aline Nkoulou", email: "a.nkoulou@asimba.cm", role: "Analyste", institution: "MINCOM", statut: "actif", derniere: "il y a 2 h" },
-  { nom: "Franck Tchoumi", email: "f.tchoumi@asimba.cm", role: "Analyste", institution: "MINPOSTEL", statut: "suspendu", derniere: "il y a 3 j" },
-  { nom: "Léonie Bakari", email: "l.bakari@asimba.cm", role: "Manager", institution: "UNICEF", statut: "actif", derniere: "hier" },
-  { nom: "Paul Kouam", email: "p.kouam@asimba.cm", role: "Manager", institution: "MINPOSTEL", statut: "actif", derniere: "il y a 4 h" },
-  { nom: "Rachelle Ngono", email: "r.ngono@asimba.cm", role: "Analyste", institution: "UYI", statut: "actif", derniere: "il y a 30 min" },
-  { nom: "Citoyen anonyme #4821", email: "—", role: "Citoyen", institution: "—", statut: "actif", derniere: "il y a 6 min" },
+  {
+    nom: "Armel Guyot",
+    email: "armel.guyot@asimba.cm",
+    role: "Administrateur",
+    institution: "ANTIC",
+    statut: "actif",
+    derniere: "il y a 3 min",
+  },
+  {
+    nom: "Nadège Mbarga",
+    email: "n.mbarga@asimba.cm",
+    role: "Analyste senior",
+    institution: "ANTIC",
+    statut: "actif",
+    derniere: "il y a 12 min",
+  },
+  {
+    nom: "Serge Ekambi",
+    email: "s.ekambi@asimba.cm",
+    role: "Analyste",
+    institution: "BSC",
+    statut: "actif",
+    derniere: "il y a 1 h",
+  },
+  {
+    nom: "Aline Nkoulou",
+    email: "a.nkoulou@asimba.cm",
+    role: "Analyste",
+    institution: "MINCOM",
+    statut: "actif",
+    derniere: "il y a 2 h",
+  },
+  {
+    nom: "Franck Tchoumi",
+    email: "f.tchoumi@asimba.cm",
+    role: "Analyste",
+    institution: "MINPOSTEL",
+    statut: "suspendu",
+    derniere: "il y a 3 j",
+  },
+  {
+    nom: "Léonie Bakari",
+    email: "l.bakari@asimba.cm",
+    role: "Manager",
+    institution: "UNICEF",
+    statut: "actif",
+    derniere: "hier",
+  },
+  {
+    nom: "Paul Kouam",
+    email: "p.kouam@asimba.cm",
+    role: "Manager",
+    institution: "MINPOSTEL",
+    statut: "actif",
+    derniere: "il y a 4 h",
+  },
+  {
+    nom: "Rachelle Ngono",
+    email: "r.ngono@asimba.cm",
+    role: "Analyste",
+    institution: "UYI",
+    statut: "actif",
+    derniere: "il y a 30 min",
+  },
+  {
+    nom: "Citoyen anonyme #4821",
+    email: "—",
+    role: "Citoyen",
+    institution: "—",
+    statut: "actif",
+    derniere: "il y a 6 min",
+  },
 ];
 
 export const auditLogs = Array.from({ length: 18 }).map((_, i) => {
@@ -409,7 +472,7 @@ export const auditLogs = Array.from({ length: 18 }).map((_, i) => {
     horodatage: d.toISOString(),
     utilisateur: utilisateurs[i % utilisateurs.length].nom,
     ...a,
-    ip: `196.${20 + (i % 40)}.${10 + (i * 3) % 240}.${(i * 17) % 240}`,
+    ip: `196.${20 + (i % 40)}.${10 + ((i * 3) % 240)}.${(i * 17) % 240}`,
   };
 });
 
