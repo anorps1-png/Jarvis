@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader, SeverityBadge, StatusPill } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { alerts, formatDateTime } from "@/lib/mock-data";
 import { CheckCircle2, MessageSquare, PaperclipIcon, UserPlus, FileDown, Users2 } from "lucide-react";
 
 export const Route = createFileRoute("/incidents")({
+  beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({
     meta: [
       { title: "Gestion des incidents — ASIMBA" },

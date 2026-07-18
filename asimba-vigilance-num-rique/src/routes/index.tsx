@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader, SeverityBadge, StatusPill } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({
     meta: [
       { title: "Tableau de bord — ASIMBA" },

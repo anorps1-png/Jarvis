@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { BookOpen, Video, HelpCircle, Shield, ChevronRight, Search } from "lucid
 import { articles } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/connaissances")({
+  beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({
     meta: [
       { title: "Base documentaire — ASIMBA" },

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader, SeverityBadge } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Maximize2, Minus, Plus as PlusIcon, Layers, Download } from "lucide-rea
 import { alerts, regionsData, villes } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/carte")({
+  beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({
     meta: [
       { title: "Carte des risques — ASIMBA" },

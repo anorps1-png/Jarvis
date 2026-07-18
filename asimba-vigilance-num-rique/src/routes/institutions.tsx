@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Building2, Users2, Plus } from "lucide-react";
 import { institutions } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/institutions")({
+  beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({
     meta: [
       { title: "Institutions partenaires — ASIMBA" },

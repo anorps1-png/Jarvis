@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 
 export const Route = createFileRoute("/parametres")({
+  beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({ meta: [{ title: "Paramètres — ASIMBA" }, { name: "description", content: "Préférences du compte, sécurité et notifications." }] }),
   component: SettingsPage,
 });

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import { Download, FileSpreadsheet } from "lucide-react";
 import { categoriesData, evolutionSeries, regionsData, sourcesData, topAnalystes } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/statistiques")({
+  beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({
     meta: [
       { title: "Statistiques — ASIMBA" },

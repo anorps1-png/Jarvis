@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import { Search, Download } from "lucide-react";
 import { auditLogs, formatDateTime } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/audit")({
+  beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({
     meta: [{ title: "Journal d'audit — ASIMBA" }, { name: "description", content: "Traçabilité complète des actions effectuées sur la plateforme." }],
   }),

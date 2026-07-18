@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { KeyRound, Plug, ShieldCheck, Sparkles, Copy, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/administration")({
+  beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({
     meta: [{ title: "Administration — ASIMBA" }, { name: "description", content: "Rôles, permissions, catégories, IA et intégrations." }],
   }),

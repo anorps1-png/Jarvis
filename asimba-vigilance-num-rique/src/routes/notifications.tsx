@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { notifications } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/notifications")({
+  beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({
     meta: [{ title: "Notifications — ASIMBA" }, { name: "description", content: "Historique et préférences de notification." }],
   }),

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,28 +43,151 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+// --- Protection SSRF du scraper ---------------------------------------------
+// Le scraper télécharge une URL fournie par l'utilisateur. Sans garde-fou, il
+// permettrait d'atteindre le réseau interne, les endpoints de métadonnées cloud
+// (169.254.169.254), localhost, etc. On valide donc strictement la cible, on
+// re-valide à chaque redirection, et on borne durée + taille de la réponse.
+
+const SCRAPER_TIMEOUT_MS = 8000;
+const SCRAPER_MAX_BYTES = 2_000_000; // 2 Mo
+const SCRAPER_MAX_REDIRECTS = 3;
+const SCRAPER_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36";
+
+const BLOCKED_HOSTNAMES = new Set(["localhost", "metadata.google.internal"]);
+
+function isPrivateIPv4(host: string): boolean {
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const parts = m.slice(1).map(Number);
+  if (parts.some((n) => n > 255)) return false;
+  const [a, b] = parts;
+  return (
+    a === 0 || // 0.0.0.0/8
+    a === 10 || // privé
+    a === 127 || // loopback
+    (a === 169 && b === 254) || // link-local + métadonnées cloud
+    (a === 172 && b >= 16 && b <= 31) || // privé
+    (a === 192 && b === 168) || // privé
+    (a === 100 && b >= 64 && b <= 127) || // CGNAT
+    a >= 224 // multicast / réservé
+  );
+}
+
+function isBlockedHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, ""); // retire crochets IPv6
+  if (!host || BLOCKED_HOSTNAMES.has(host)) return true;
+  if (host.endsWith(".local") || host.endsWith(".internal")) return true;
+  // IPv6 : non spécifié, loopback, link-local (fe80::/10), unique-local (fc00::/7)
+  if (host === "::" || host === "::1" || host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) {
+    return true;
+  }
+  if (isPrivateIPv4(host)) return true;
+  // IPv4-mapped IPv6, ex. ::ffff:169.254.169.254
+  const mapped = host.match(/::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i);
+  return !!mapped && isPrivateIPv4(mapped[1]);
+}
+
+function validateScrapeUrl(raw: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error("URL invalide.");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("Seuls les protocoles http:// et https:// sont autorisés.");
+  }
+  if (isBlockedHost(parsed.hostname)) {
+    throw new Error("Cette adresse cible un réseau interne et n'est pas autorisée.");
+  }
+  return parsed;
+}
+
+// isBlockedHost ne voit que le hostname littéral : un domaine dont le DNS
+// pointe vers une IP privée (DNS rebinding, ex. cible 169.254.169.254 pour
+// atteindre les métadonnées cloud) passerait ce contrôle. On résout donc le
+// nom et on revalide chaque IP obtenue avant de laisser fetch() s'y connecter.
+async function assertResolvesToPublicIp(hostname: string): Promise<void> {
+  const host = hostname.toLowerCase();
+  if (/^[\d.]+$/.test(host) || host.includes(":")) return; // déjà une IP littérale, déjà vérifiée
+  const { lookup } = await import("node:dns/promises");
+  let records: { address: string }[];
+  try {
+    records = await lookup(host, { all: true, verbatim: true });
+  } catch {
+    throw new Error("Impossible de résoudre ce nom d'hôte.");
+  }
+  if (records.length === 0 || records.some((r) => isBlockedHost(r.address))) {
+    throw new Error("Cette adresse cible un réseau interne et n'est pas autorisée.");
+  }
+}
+
+async function readLimited(response: Response, maxBytes: number): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) return (await response.text()).slice(0, maxBytes);
+  const decoder = new TextDecoder("utf-8", { fatal: false });
+  let out = "";
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    out += decoder.decode(value, { stream: true });
+    if (total > maxBytes) {
+      await reader.cancel();
+      break;
+    }
+  }
+  return out + decoder.decode();
+}
+
+async function fetchHtmlSafely(rawUrl: string): Promise<string> {
+  let target = validateScrapeUrl(rawUrl);
+  await assertResolvesToPublicIp(target.hostname);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SCRAPER_TIMEOUT_MS);
+  try {
+    let response: Response | undefined;
+    for (let hop = 0; hop <= SCRAPER_MAX_REDIRECTS; hop++) {
+      response = await fetch(target.toString(), {
+        headers: { "User-Agent": SCRAPER_USER_AGENT },
+        redirect: "manual", // on suit les redirections nous-mêmes pour re-valider chaque hôte
+        signal: controller.signal,
+      });
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location) break;
+        if (hop === SCRAPER_MAX_REDIRECTS) throw new Error("Trop de redirections.");
+        target = validateScrapeUrl(new URL(location, target).toString());
+        await assertResolvesToPublicIp(target.hostname);
+        continue;
+      }
+      break;
+    }
+    if (!response) throw new Error("Aucune réponse du serveur distant.");
+    if (!response.ok) throw new Error(`Le serveur distant a répondu avec le statut ${response.status}.`);
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType && !/text\/html|text\/plain|application\/xhtml/i.test(contentType)) {
+      throw new Error("Le contenu récupéré n'est pas une page web exploitable.");
+    }
+    return await readLimited(response, SCRAPER_MAX_BYTES);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Server-side Web Scraper
 const scrapeUrlFn = createServerFn({ method: "GET" })
   .validator((url: string) => {
-    if (typeof url !== "string" || !url.startsWith("http")) {
-      throw new Error("URL invalide. L'URL doit commencer par http:// ou https://");
-    }
-    return url;
+    if (typeof url !== "string") throw new Error("URL invalide.");
+    return validateScrapeUrl(url).toString();
   })
   .handler(async ({ data: url }) => {
     try {
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Le serveur distant a répondu avec le statut ${response.status}`);
-      }
-
-      const html = await response.text();
+      const html = await fetchHtmlSafely(url);
 
       // Parse HTML text content from common tags (p, li, h1, h2)
       const textBlocks: string[] = [];
@@ -91,14 +215,25 @@ const scrapeUrlFn = createServerFn({ method: "GET" })
       };
     } catch (err: any) {
       console.error("[ASIMBA Scraper Error]", err);
-      return {
-        success: false,
-        error: err.message,
-      };
+      // On ne renvoie au client qu'un message contrôlé (les messages de validation
+      // d'URL le sont), jamais les détails d'erreurs réseau internes.
+      const safeMessages = [
+        "URL invalide.",
+        "Seuls les protocoles http:// et https:// sont autorisés.",
+        "Cette adresse cible un réseau interne et n'est pas autorisée.",
+        "Impossible de résoudre ce nom d'hôte.",
+        "Trop de redirections.",
+        "Le contenu récupéré n'est pas une page web exploitable.",
+      ];
+      const message = safeMessages.includes(err?.message)
+        ? err.message
+        : "Impossible de récupérer cette URL.";
+      return { success: false, error: message };
     }
   });
 
 export const Route = createFileRoute("/analyse-ia")({
+  beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({
     meta: [
       { title: "Analyse IA & Fact-checking — ASIMBA" },

@@ -43,6 +43,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { notifications as notifs } from "@/lib/mock-data";
+import { useCurrentUser, useSignOut, initialsFrom } from "@/lib/auth";
 
 type NavItem = {
   label: string;
@@ -173,11 +174,15 @@ function SidebarNav({
 }
 
 function SidebarFooter({ collapsed }: { collapsed: boolean }) {
+  const { name, email } = useCurrentUser();
+  const signOut = useSignOut();
+  const initials = initialsFrom(name ?? email);
+
   if (collapsed) {
     return (
       <div className="flex items-center justify-center px-2 py-3 border-t border-sidebar-border">
         <Avatar className="h-8 w-8 ring-2 ring-sidebar-accent">
-          <AvatarFallback className="bg-primary text-primary-foreground text-xs">AG</AvatarFallback>
+          <AvatarFallback className="bg-primary text-primary-foreground text-xs">{initials}</AvatarFallback>
         </Avatar>
       </div>
     );
@@ -186,15 +191,19 @@ function SidebarFooter({ collapsed }: { collapsed: boolean }) {
     <div className="border-t border-sidebar-border p-3">
       <div className="flex items-center gap-2.5 rounded-lg bg-sidebar-accent/50 p-2.5">
         <Avatar className="h-9 w-9">
-          <AvatarFallback className="bg-primary text-primary-foreground text-xs">AG</AvatarFallback>
+          <AvatarFallback className="bg-primary text-primary-foreground text-xs">{initials}</AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-medium text-sidebar-foreground">
-            Armel Guyot
+            {name ?? "Non connecté"}
           </div>
-          <div className="truncate text-[11px] text-sidebar-muted">Administrateur · ANTIC</div>
+          <div className="truncate text-[11px] text-sidebar-muted">{email ?? "—"}</div>
         </div>
-        <button className="rounded-md p-1.5 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground">
+        <button
+          onClick={signOut}
+          className="rounded-md p-1.5 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          aria-label="Se déconnecter"
+        >
           <LogOut className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -294,6 +303,9 @@ function NotificationsMenu() {
 }
 
 function Topbar({ title, subtitle, actions }: { title?: string; subtitle?: string; actions?: ReactNode }) {
+  const { name, email } = useCurrentUser();
+  const signOut = useSignOut();
+  const initials = initialsFrom(name ?? email);
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-card/80 backdrop-blur px-4 lg:px-6">
       <MobileNavTrigger />
@@ -323,22 +335,27 @@ function Topbar({ title, subtitle, actions }: { title?: string; subtitle?: strin
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 rounded-md border border-border bg-card px-1.5 py-1 hover:bg-accent">
               <Avatar className="h-7 w-7">
-                <AvatarFallback className="bg-primary text-primary-foreground text-[11px]">AG</AvatarFallback>
+                <AvatarFallback className="bg-primary text-primary-foreground text-[11px]">{initials}</AvatarFallback>
               </Avatar>
               <div className="hidden md:flex flex-col text-left leading-tight pr-1">
-                <span className="text-[12px] font-medium">Armel Guyot</span>
-                <span className="text-[10px] text-muted-foreground">Administrateur</span>
+                <span className="text-[12px] font-medium">{name ?? "Non connecté"}</span>
+                <span className="text-[10px] text-muted-foreground max-w-[140px] truncate">{email ?? "—"}</span>
               </div>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Profil</DropdownMenuItem>
-            <DropdownMenuItem>Préférences</DropdownMenuItem>
-            <DropdownMenuItem>Sécurité (2FA)</DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/parametres">Profil</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/parametres">Préférences</Link>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">Se déconnecter</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onSelect={() => signOut()}>
+              Se déconnecter
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

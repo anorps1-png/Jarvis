@@ -1,19 +1,48 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card } from "@/components/ui/card";
-import { Eye, EyeOff, ShieldCheck, Lock, Sparkles } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, Lock, Sparkles, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/connexion")({
   head: () => ({ meta: [{ title: "Connexion — ASIMBA" }, { name: "description", content: "Accès à la plateforme ASIMBA." }] }),
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+  }),
   component: LoginPage,
 });
 
 function LoginPage() {
   const [show, setShow] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || !password) {
+      toast.error("Veuillez renseigner votre email et votre mot de passe.");
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setSubmitting(false);
+    if (error) {
+      toast.error("Connexion impossible", { description: "Email ou mot de passe incorrect." });
+      return;
+    }
+    toast.success("Connexion réussie");
+    // On évite les redirections vers un domaine externe (open redirect).
+    const target = redirect && redirect.startsWith("/") ? redirect : "/";
+    navigate({ to: target });
+  }
+
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
       <div className="relative hidden lg:flex flex-col justify-between bg-sidebar text-sidebar-foreground p-10 overflow-hidden">
@@ -70,10 +99,17 @@ function LoginPage() {
             <p className="mt-1.5 text-[13px] text-muted-foreground">Bienvenue. Renseignez vos identifiants pour accéder à la plateforme.</p>
           </div>
 
-          <form className="mt-8 space-y-4" onSubmit={(e) => e.preventDefault()}>
+          <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
             <div>
               <Label className="text-[12.5px] mb-1.5 block">Email professionnel</Label>
-              <Input placeholder="prenom.nom@institution.cm" className="h-11" defaultValue="armel.guyot@asimba.cm" />
+              <Input
+                type="email"
+                autoComplete="email"
+                placeholder="prenom.nom@institution.cm"
+                className="h-11"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
@@ -81,7 +117,14 @@ function LoginPage() {
                 <a href="#" className="text-[11.5px] font-medium text-primary hover:underline">Mot de passe oublié ?</a>
               </div>
               <div className="relative">
-                <Input type={show ? "text" : "password"} defaultValue="•••••••••••" className="h-11 pr-10" />
+                <Input
+                  type={show ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder="Votre mot de passe"
+                  className="h-11 pr-10"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
                 <button type="button" onClick={() => setShow((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground" aria-label="Afficher le mot de passe">
                   {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -95,8 +138,9 @@ function LoginPage() {
                 <Lock className="h-3 w-3" /> Session chiffrée
               </span>
             </div>
-            <Button asChild className="w-full h-11 text-[13px]">
-              <Link to="/">Se connecter</Link>
+            <Button type="submit" disabled={submitting} className="w-full h-11 text-[13px]">
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {submitting ? "Connexion…" : "Se connecter"}
             </Button>
             <div className="relative py-1">
               <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
