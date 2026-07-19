@@ -409,14 +409,30 @@ export type Database = {
     };
     Functions: {
       generate_signalement_reference: { Args: never; Returns: string };
+      get_alertes_evolution: {
+        Args: { jours?: number };
+        Returns: {
+          critiques: number;
+          elevees: number;
+          faibles: number;
+          jour: string;
+          moyennes: number;
+        }[];
+      };
       get_dashboard_kpis: {
         Args: never;
         Returns: {
           alertes_totales: number;
+          alertes_totales_delta_pct: number;
+          confiance_ia_moyenne: number;
           critiques: number;
+          critiques_delta_pct: number;
           en_cours: number;
+          en_cours_delta_pct: number;
           resolues: number;
+          resolues_delta_pct: number;
           signalements_jour: number;
+          temps_moyen_secondes: number;
         }[];
       };
       has_role: {
@@ -432,6 +448,10 @@ export type Database = {
         Returns: boolean;
       };
       is_staff: { Args: { _user_id: string }; Returns: boolean };
+      pct_delta: {
+        Args: { courant: number; precedent: number };
+        Returns: number;
+      };
     };
     Enums: {
       alerte_propagation: "tres_rapide" | "rapide" | "moderee" | "lente";

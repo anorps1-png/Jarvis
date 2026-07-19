@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, useCurrentUser } from "@/lib/auth";
 import { AppLayout, PageHeader, SeverityBadge, StatusPill } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,16 +43,16 @@ import {
   Sparkles,
   Activity,
 } from "lucide-react";
+import { formatTime } from "@/lib/mock-data";
 import {
-  alerts,
-  categoriesData,
-  evolutionSeries,
-  formatTime,
-  kpis,
-  regionsData,
-  sourcesData,
-  topAnalystes,
-} from "@/lib/mock-data";
+  useAlertesDashboard,
+  useAlertesEvolution,
+  useCategoriesStats,
+  useDashboardKpis,
+  useRegionsStats,
+  useSourcesStats,
+  useTopAnalystes,
+} from "@/lib/queries/alertes";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -69,6 +69,28 @@ export const Route = createFileRoute("/")({
   component: DashboardPage,
 });
 
+const CHART_COLORS = [
+  "var(--color-chart-1)",
+  "var(--color-chart-2)",
+  "var(--color-chart-3)",
+  "var(--color-chart-4)",
+  "var(--color-chart-5)",
+];
+
+const JOURS_FR = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+
+function formatJour(iso: string) {
+  return JOURS_FR[new Date(iso).getDay()];
+}
+
+function formatDuree(secondes: number | null | undefined) {
+  if (secondes === null || secondes === undefined) return "—";
+  const h = Math.floor(secondes / 3600);
+  const m = Math.round((secondes % 3600) / 60);
+  if (h === 0) return `${m} min`;
+  return `${h} h ${String(m).padStart(2, "0")}`;
+}
+
 function KpiCard({
   label,
   value,
@@ -79,7 +101,7 @@ function KpiCard({
 }: {
   label: string;
   value: string | number;
-  delta?: number;
+  delta?: number | null;
   icon: React.ComponentType<{ className?: string }>;
   tone?: "default" | "danger" | "warning" | "success" | "info";
   hint?: string;
@@ -108,7 +130,7 @@ function KpiCard({
           </div>
         </div>
         <div className="mt-2 flex items-center gap-2 text-[11.5px]">
-          {delta !== undefined && (
+          {delta !== undefined && delta !== null && (
             <span
               className={cn(
                 "inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 font-medium",
@@ -153,8 +175,45 @@ function ChartCard({
 }
 
 function DashboardPage() {
+  const { name } = useCurrentUser();
+  const { data: kpis } = useDashboardKpis();
+  const { data: evolution } = useAlertesEvolution(7);
+  const { data: dashboard } = useAlertesDashboard({ limit: 50 });
+  const { data: sources } = useSourcesStats();
+  const { data: categories } = useCategoriesStats();
+  const { data: regions } = useRegionsStats();
+  const { data: analystes } = useTopAnalystes();
+
+  const alerts = dashboard ?? [];
   const critiques = alerts.filter((a) => a.severite === "critique").slice(0, 5);
   const recent = alerts.slice(0, 6);
+
+  const evolutionSeries = (evolution ?? []).map((e) => ({
+    jour: formatJour(e.jour),
+    critiques: e.critiques,
+    elevees: e.elevees,
+    moyennes: e.moyennes,
+    faibles: e.faibles,
+  }));
+
+  const totalSources = (sources ?? []).reduce((sum, s) => sum + s.total, 0);
+  const sourcesData = (sources ?? []).map((s, i) => ({
+    nom: s.source ?? "Autre",
+    part: totalSources > 0 ? Math.round((s.total / totalSources) * 100) : 0,
+    couleur: CHART_COLORS[i % CHART_COLORS.length],
+  }));
+
+  const totalCategories = (categories ?? []).reduce((sum, c) => sum + c.total, 0);
+  const categoriesData = (categories ?? []).map((c) => ({
+    nom: c.categorie ?? "Autre",
+    part: totalCategories > 0 ? Math.round((c.total / totalCategories) * 100) : 0,
+  }));
+
+  const regionsData = (regions ?? []).map((r) => ({
+    region: r.region ?? "—",
+    alertes: r.total,
+    critiques: r.critiques,
+  }));
 
   return (
     <AppLayout
@@ -174,8 +233,10 @@ function DashboardPage() {
       <div className="mx-auto max-w-[1600px] px-4 py-6 lg:px-8 space-y-6">
         <PageHeader
           eyebrow="Centre opérationnel"
-          title="Bienvenue, Armel"
-          description="128 alertes traitées cette semaine · 23 critiques nécessitent votre attention immédiate."
+          title={`Bienvenue${name ? `, ${name}` : ""}`}
+          description={`${kpis?.alertes_totales ?? 0} alertes suivies · ${
+            kpis?.critiques ?? 0
+          } critiques nécessitent votre attention immédiate.`}
           actions={
             <>
               <Select defaultValue="7">
@@ -208,45 +269,46 @@ function DashboardPage() {
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-6">
           <KpiCard
             label="Alertes totales"
-            value={kpis.alertesTotales.toLocaleString("fr-FR")}
-            delta={kpis.alertesTotalesDelta}
+            value={(kpis?.alertes_totales ?? 0).toLocaleString("fr-FR")}
+            delta={kpis?.alertes_totales_delta_pct}
             icon={FileText}
           />
           <KpiCard
             label="Critiques"
-            value={kpis.critiques}
-            delta={kpis.critiquesDelta}
+            value={kpis?.critiques ?? 0}
+            delta={kpis?.critiques_delta_pct}
             icon={Flame}
             tone="danger"
           />
           <KpiCard
             label="En cours"
-            value={kpis.enCours}
-            delta={kpis.enCoursDelta}
+            value={kpis?.en_cours ?? 0}
+            delta={kpis?.en_cours_delta_pct}
             icon={Clock}
             tone="warning"
           />
           <KpiCard
             label="Résolues"
-            value={kpis.resolues}
-            delta={kpis.resoluesDelta}
+            value={kpis?.resolues ?? 0}
+            delta={kpis?.resolues_delta_pct}
             icon={CheckCircle2}
             tone="success"
           />
           <KpiCard
             label="Temps moyen"
-            value={kpis.tempsMoyen}
-            delta={kpis.tempsMoyenDelta}
+            value={formatDuree(kpis?.temps_moyen_secondes)}
             icon={Activity}
             tone="info"
             hint="temps de traitement"
           />
           <KpiCard
             label="Confiance IA"
-            value={`${kpis.confianceIA}%`}
+            value={
+              kpis?.confiance_ia_moyenne != null ? `${Math.round(kpis.confiance_ia_moyenne)}%` : "—"
+            }
             icon={Sparkles}
             tone="info"
-            hint="moyenne 7j"
+            hint="moyenne des fact-checks"
           />
         </div>
 
@@ -342,22 +404,85 @@ function DashboardPage() {
           </ChartCard>
 
           <ChartCard title="Sources principales">
-            <div className="flex items-center gap-4">
-              <div className="h-[180px] w-[180px] shrink-0">
+            {sourcesData.length === 0 ? (
+              <EmptyHint label="Aucune source encore enregistrée." />
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="h-[180px] w-[180px] shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={sourcesData}
+                        dataKey="part"
+                        nameKey="nom"
+                        innerRadius={48}
+                        outerRadius={78}
+                        paddingAngle={2}
+                      >
+                        {sourcesData.map((s, i) => (
+                          <Cell key={i} fill={s.couleur} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--color-card)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: 8,
+                          fontSize: 12,
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex-1 space-y-2">
+                  {sourcesData.map((s) => (
+                    <div key={s.nom} className="flex items-center justify-between text-[12px]">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full" style={{ background: s.couleur }} />
+                        <span className="text-foreground">{s.nom}</span>
+                      </div>
+                      <span className="font-medium tabular-nums text-muted-foreground">
+                        {s.part}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </ChartCard>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <ChartCard title="Catégories les plus signalées" className="lg:col-span-2">
+            {categoriesData.length === 0 ? (
+              <EmptyHint label="Aucune catégorie encore enregistrée." />
+            ) : (
+              <div className="h-[220px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={sourcesData}
-                      dataKey="part"
-                      nameKey="nom"
-                      innerRadius={48}
-                      outerRadius={78}
-                      paddingAngle={2}
-                    >
-                      {sourcesData.map((s, i) => (
-                        <Cell key={i} fill={s.couleur} />
-                      ))}
-                    </Pie>
+                  <BarChart
+                    data={categoriesData}
+                    margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      stroke="var(--color-border)"
+                      vertical={false}
+                      strokeDasharray="3 3"
+                    />
+                    <XAxis
+                      dataKey="nom"
+                      stroke="var(--color-muted-foreground)"
+                      fontSize={10.5}
+                      tickLine={false}
+                      axisLine={false}
+                      interval={0}
+                    />
+                    <YAxis
+                      stroke="var(--color-muted-foreground)"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      unit="%"
+                    />
                     <Tooltip
                       contentStyle={{
                         background: "var(--color-card)",
@@ -366,66 +491,11 @@ function DashboardPage() {
                         fontSize: 12,
                       }}
                     />
-                  </PieChart>
+                    <Bar dataKey="part" radius={[6, 6, 0, 0]} fill="var(--color-primary)" />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="flex-1 space-y-2">
-                {sourcesData.map((s) => (
-                  <div key={s.nom} className="flex items-center justify-between text-[12px]">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full" style={{ background: s.couleur }} />
-                      <span className="text-foreground">{s.nom}</span>
-                    </div>
-                    <span className="font-medium tabular-nums text-muted-foreground">
-                      {s.part}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </ChartCard>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <ChartCard title="Catégories les plus signalées" className="lg:col-span-2">
-            <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={categoriesData}
-                  margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
-                >
-                  <CartesianGrid
-                    stroke="var(--color-border)"
-                    vertical={false}
-                    strokeDasharray="3 3"
-                  />
-                  <XAxis
-                    dataKey="nom"
-                    stroke="var(--color-muted-foreground)"
-                    fontSize={10.5}
-                    tickLine={false}
-                    axisLine={false}
-                    interval={0}
-                  />
-                  <YAxis
-                    stroke="var(--color-muted-foreground)"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    unit="%"
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--color-card)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                  />
-                  <Bar dataKey="part" radius={[6, 6, 0, 0]} fill="var(--color-primary)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            )}
           </ChartCard>
 
           <ChartCard title="Répartition régionale">
@@ -495,47 +565,51 @@ function DashboardPage() {
               </Button>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="divide-y divide-border">
-                {critiques.map((a) => (
-                  <div
-                    key={a.id}
-                    className="flex items-start gap-3 px-5 py-3.5 hover:bg-muted/40 transition-colors"
-                  >
-                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-destructive/10">
-                      <AlertTriangle className="h-4 w-4 text-destructive" />
+              {critiques.length === 0 ? (
+                <EmptyHint label="Aucune alerte critique en ce moment." />
+              ) : (
+                <div className="divide-y divide-border">
+                  {critiques.map((a) => (
+                    <div
+                      key={a.id}
+                      className="flex items-start gap-3 px-5 py-3.5 hover:bg-muted/40 transition-colors"
+                    >
+                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-destructive/10">
+                        <AlertTriangle className="h-4 w-4 text-destructive" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[11px] font-mono text-muted-foreground">
+                            {a.reference}
+                          </span>
+                          {a.severite && <SeverityBadge level={a.severite} />}
+                          {a.statut && <StatusPill status={a.statut} />}
+                        </div>
+                        <div className="mt-1 text-[13px] font-medium text-foreground truncate">
+                          {a.titre}
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11.5px] text-muted-foreground">
+                          <span>{a.source ?? "Source inconnue"}</span>
+                          <span>·</span>
+                          <span>
+                            {a.ville ?? "—"}, {a.region ?? "—"}
+                          </span>
+                          <span>·</span>
+                          <span>Détecté à {a.detecte ? formatTime(a.detecte) : "—"}</span>
+                        </div>
+                      </div>
+                      <div className="hidden md:flex flex-col items-end gap-1">
+                        <div className="text-[10.5px] font-semibold tracking-wider text-muted-foreground uppercase">
+                          Score
+                        </div>
+                        <div className="text-[16px] font-semibold tabular-nums text-destructive">
+                          {a.score}
+                        </div>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[11px] font-mono text-muted-foreground">
-                          {a.reference}
-                        </span>
-                        <SeverityBadge level={a.severite} />
-                        <StatusPill status={a.statut} />
-                      </div>
-                      <div className="mt-1 text-[13px] font-medium text-foreground truncate">
-                        {a.titre}
-                      </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11.5px] text-muted-foreground">
-                        <span>{a.source}</span>
-                        <span>·</span>
-                        <span>
-                          {a.ville}, {a.region}
-                        </span>
-                        <span>·</span>
-                        <span>Détecté à {formatTime(a.detecte)}</span>
-                      </div>
-                    </div>
-                    <div className="hidden md:flex flex-col items-end gap-1">
-                      <div className="text-[10.5px] font-semibold tracking-wider text-muted-foreground uppercase">
-                        Score
-                      </div>
-                      <div className="text-[16px] font-semibold tabular-nums text-destructive">
-                        {a.score}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -546,28 +620,38 @@ function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3.5">
-              {topAnalystes.map((a, i) => (
-                <div key={a.nom} className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[12px] font-semibold text-primary">
-                    {i + 1}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between text-[12.5px]">
-                      <span className="font-medium truncate">{a.nom}</span>
-                      <span className="tabular-nums text-muted-foreground">{a.traites}</span>
+              {(analystes ?? []).length === 0 ? (
+                <EmptyHint label="Aucune assignation encore enregistrée." />
+              ) : (
+                (analystes ?? []).map((a, i) => {
+                  const tauxResolution =
+                    a.total_traites > 0 ? Math.round((a.total_resolus / a.total_traites) * 100) : 0;
+                  return (
+                    <div key={a.assignee_id} className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[12px] font-semibold text-primary">
+                        {i + 1}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between text-[12.5px]">
+                          <span className="font-medium truncate">{a.analyste}</span>
+                          <span className="tabular-nums text-muted-foreground">
+                            {a.total_traites}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <Progress value={tauxResolution} className="h-1.5" />
+                          <span className="text-[10.5px] tabular-nums text-muted-foreground">
+                            {tauxResolution}%
+                          </span>
+                        </div>
+                        <div className="mt-0.5 text-[10.5px] text-muted-foreground">
+                          Temps moyen · {formatDuree(a.duree_moyenne_resolution)}
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <Progress value={a.score} className="h-1.5" />
-                      <span className="text-[10.5px] tabular-nums text-muted-foreground">
-                        {a.score}%
-                      </span>
-                    </div>
-                    <div className="mt-0.5 text-[10.5px] text-muted-foreground">
-                      Temps moyen · {a.moyenne}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })
+              )}
             </CardContent>
           </Card>
         </div>
@@ -578,23 +662,27 @@ function DashboardPage() {
               <CardTitle className="text-[13.5px] font-semibold">Activité récente</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="divide-y divide-border">
-                {recent.map((a) => (
-                  <div key={a.id} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/40">
-                    <div className="h-2 w-2 rounded-full bg-primary" />
-                    <div className="min-w-0 flex-1 text-[12.5px]">
-                      <span className="font-medium text-foreground">Nouvelle alerte</span>{" "}
-                      <span className="text-muted-foreground">{a.titre}</span>
+              {recent.length === 0 ? (
+                <EmptyHint label="Aucune activité récente." />
+              ) : (
+                <div className="divide-y divide-border">
+                  {recent.map((a) => (
+                    <div key={a.id} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/40">
+                      <div className="h-2 w-2 rounded-full bg-primary" />
+                      <div className="min-w-0 flex-1 text-[12.5px]">
+                        <span className="font-medium text-foreground">Nouvelle alerte</span>{" "}
+                        <span className="text-muted-foreground">{a.titre}</span>
+                      </div>
+                      <span className="hidden md:inline text-[11px] text-muted-foreground">
+                        {a.source ?? "—"} · {a.ville ?? "—"}
+                      </span>
+                      <span className="text-[11px] font-mono text-muted-foreground">
+                        {a.detecte ? formatTime(a.detecte) : "—"}
+                      </span>
                     </div>
-                    <span className="hidden md:inline text-[11px] text-muted-foreground">
-                      {a.source} · {a.ville}
-                    </span>
-                    <span className="text-[11px] font-mono text-muted-foreground">
-                      {formatTime(a.detecte)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -627,6 +715,14 @@ function LegendDot({ color, label }: { color: string; label: string }) {
     <div className="flex items-center gap-1.5">
       <span className="h-1.5 w-4 rounded-full" style={{ background: color }} />
       <span>{label}</span>
+    </div>
+  );
+}
+
+function EmptyHint({ label }: { label: string }) {
+  return (
+    <div className="flex h-[120px] items-center justify-center text-[12.5px] text-muted-foreground">
+      {label}
     </div>
   );
 }

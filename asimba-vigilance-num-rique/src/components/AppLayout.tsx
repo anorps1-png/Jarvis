@@ -448,14 +448,28 @@ export function PageHeader({
   );
 }
 
-export function SeverityBadge({ level }: { level: "critique" | "eleve" | "moyen" | "faible" }) {
-  const map = {
+type SeverityLevel = "critique" | "eleve" | "elevee" | "moyen" | "moyenne" | "faible" | "info";
+
+export function SeverityBadge({ level }: { level: SeverityLevel }) {
+  const map: Record<SeverityLevel, string> = {
     critique: "bg-destructive/10 text-destructive ring-destructive/20",
     eleve: "bg-warning/15 text-[color:oklch(0.45_0.15_60)] ring-warning/30",
+    elevee: "bg-warning/15 text-[color:oklch(0.45_0.15_60)] ring-warning/30",
     moyen: "bg-info/10 text-info ring-info/20",
+    moyenne: "bg-info/10 text-info ring-info/20",
     faible: "bg-muted text-muted-foreground ring-border",
-  } as const;
-  const label = { critique: "Critique", eleve: "Élevé", moyen: "Moyen", faible: "Faible" }[level];
+    info: "bg-muted text-muted-foreground ring-border",
+  };
+  const labels: Record<SeverityLevel, string> = {
+    critique: "Critique",
+    eleve: "Élevé",
+    elevee: "Élevée",
+    moyen: "Moyen",
+    moyenne: "Moyenne",
+    faible: "Faible",
+    info: "Info",
+  };
+  const label = labels[level];
   return (
     <Badge
       className={cn("rounded-md ring-1 font-medium tracking-tight", map[level])}

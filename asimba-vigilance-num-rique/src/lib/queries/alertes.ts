@@ -47,6 +47,19 @@ export function useDashboardKpis() {
   });
 }
 
+/** Évolution quotidienne des alertes par sévérité (graphique dashboard). */
+export function useAlertesEvolution(jours = 7) {
+  return useQuery({
+    queryKey: queryKeys.alertesEvolution(jours),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_alertes_evolution", { jours });
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 60_000,
+  });
+}
+
 export function useRegionsStats() {
   return useQuery({
     queryKey: queryKeys.regionsStats(),

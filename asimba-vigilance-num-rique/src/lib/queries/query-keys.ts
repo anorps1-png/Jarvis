@@ -3,6 +3,7 @@ export const queryKeys = {
   alertesDashboard: (filters: Record<string, unknown> = {}) =>
     ["alertes-dashboard", filters] as const,
   dashboardKpis: () => ["dashboard-kpis"] as const,
+  alertesEvolution: (jours: number) => ["alertes-evolution", jours] as const,
   regionsStats: () => ["regions-stats"] as const,
   categoriesStats: () => ["categories-stats"] as const,
   sourcesStats: () => ["sources-stats"] as const,
