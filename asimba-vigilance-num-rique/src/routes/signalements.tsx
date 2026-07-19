@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { regions, villes, alerts, type Alert, type Category } from "@/lib/mock-data";
+import { EvidenceUploader, type EvidenceFile } from "@/components/EvidenceUploader";
 
 export const Route = createFileRoute("/signalements")({
   head: () => ({
@@ -84,6 +85,8 @@ function SignalementsPage() {
   const [suiviEmail, setSuiviEmail] = useState("");
   const [suiviActive, setSuiviActive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [signalementId, setSignalementId] = useState(() => crypto.randomUUID());
+  const [preuves, setPreuves] = useState<EvidenceFile[]>([]);
   const progress = (step / steps.length) * 100;
 
   const paysMap: Record<string, string> = { cm: "Cameroun", td: "Tchad", ga: "Gabon" };
@@ -205,6 +208,13 @@ function SignalementsPage() {
     }
 
     // Normal Supabase flow
+    const contenu = url.trim() || description.trim();
+    if (!contenu) {
+      setSubmitting(false);
+      toast.error("Veuillez renseigner une URL ou une description avant d'envoyer.");
+      return;
+    }
+
     const { data: userData } = await supabase.auth.getUser();
     const uid = userData.user?.id ?? null;
     let lat: number | null = null,
@@ -217,9 +227,11 @@ function SignalementsPage() {
       }
     }
     const payload = {
+      id: signalementId,
+      contenu,
       type,
       categorie: (categorie || null) as Database["public"]["Enums"]["signalement_categorie"] | null,
-      url: url || null,
+      capture_url: url || null,
       description: description || null,
       pays,
       region,
@@ -228,7 +240,9 @@ function SignalementsPage() {
       gps_lng: lng,
       confidentialite,
       suivi_email: suiviActive && suiviEmail ? suiviEmail : null,
-      reporter_id: confidentialite === "anonyme" ? null : uid,
+      auteur_id: confidentialite === "anonyme" ? null : uid,
+      preuves:
+        preuves as unknown as Database["public"]["Tables"]["signalements"]["Insert"]["preuves"],
     };
     const { data, error } = await supabase
       .from("signalements")
@@ -246,6 +260,8 @@ function SignalementsPage() {
     setDescription("");
     setCategorie("");
     setGps("");
+    setPreuves([]);
+    setSignalementId(crypto.randomUUID());
   }
 
   return (
@@ -375,15 +391,11 @@ function SignalementsPage() {
                   </div>
                   <div>
                     <Label className="text-[12.5px] mb-1.5 block">Preuves complémentaires</Label>
-                    <div className="rounded-lg border-2 border-dashed border-border p-8 text-center hover:border-primary/40 transition-colors cursor-pointer">
-                      <UploadCloud className="mx-auto h-8 w-8 text-muted-foreground" />
-                      <div className="mt-2 text-[13px] font-medium">
-                        Glissez-déposez ou cliquez pour téléverser
-                      </div>
-                      <div className="mt-1 text-[11.5px] text-muted-foreground">
-                        JPG, PNG, MP4, MP3, PDF · 200 Mo max
-                      </div>
-                    </div>
+                    <EvidenceUploader
+                      signalementId={signalementId}
+                      files={preuves}
+                      onFilesChange={setPreuves}
+                    />
                   </div>
                 </div>
               )}
@@ -584,7 +596,16 @@ function SignalementsPage() {
                       }
                     />
                     <Row label="Catégorie" value={categorie || "—"} />
-                    <Row label="Preuves" value={url ? "1 lien" : "—"} />
+                    <Row
+                      label="Preuves"
+                      value={
+                        preuves.length > 0
+                          ? `${preuves.length} fichier${preuves.length > 1 ? "s" : ""}`
+                          : url
+                            ? "1 lien"
+                            : "—"
+                      }
+                    />
                   </dl>
                 </div>
               )}
