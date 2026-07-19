@@ -25,6 +25,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Cache local de la CLI Supabase
+supabase/.temp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
