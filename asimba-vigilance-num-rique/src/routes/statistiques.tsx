@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
@@ -29,12 +30,13 @@ import {
 } from "recharts";
 import { Download, FileSpreadsheet } from "lucide-react";
 import {
-  categoriesData,
-  evolutionSeries,
-  regionsData,
-  sourcesData,
-  topAnalystes,
-} from "@/lib/mock-data";
+  useAlertesDashboard,
+  useAlertesEvolution,
+  useCategoriesStats,
+  useRegionsStats,
+  useSourcesStats,
+  useTopAnalystes,
+} from "@/lib/queries/alertes";
 
 export const Route = createFileRoute("/statistiques")({
   beforeLoad: ({ location }) => requireAuth(location),
@@ -50,17 +52,124 @@ export const Route = createFileRoute("/statistiques")({
   component: StatsPage,
 });
 
-const monthlyTrend = [
-  { mois: "Jan", alertes: 620, resolues: 540 },
-  { mois: "Fév", alertes: 705, resolues: 610 },
-  { mois: "Mar", alertes: 812, resolues: 720 },
-  { mois: "Avr", alertes: 894, resolues: 780 },
-  { mois: "Mai", alertes: 1024, resolues: 890 },
-  { mois: "Juin", alertes: 1156, resolues: 1010 },
-  { mois: "Juil", alertes: 1284, resolues: 1120 },
-];
+function formatDuree(secondes: number | null): string {
+  if (!secondes) return "—";
+  const mins = Math.floor(secondes / 60);
+  const secs = Math.round(secondes % 60);
+  if (mins === 0) return `${secs}s`;
+  return `${mins}m${secs}s`;
+}
 
 function StatsPage() {
+  const [monthsRange, setMonthsRange] = useState("12");
+  const { data: allAlerts } = useAlertesDashboard({ limit: 5000 });
+  const { data: evolutionData } = useAlertesEvolution(7);
+  const { data: categoriesStats } = useCategoriesStats();
+  const { data: regionsStats } = useRegionsStats();
+  const { data: sourcesStats } = useSourcesStats();
+  const { data: analystsStats } = useTopAnalystes();
+
+  const monthsNum = parseInt(monthsRange, 10);
+
+  const monthlyTrend = useMemo(() => {
+    if (!allAlerts) return [];
+
+    const now = new Date();
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - monthsNum);
+
+    const monthMap = new Map<string, { alertes: number; resolues: number }>();
+
+    allAlerts.forEach((alert) => {
+      const detecte = alert.detecte ? new Date(alert.detecte) : null;
+      if (!detecte || detecte < cutoff) return;
+
+      const year = detecte.getFullYear();
+      const month = String(detecte.getMonth() + 1).padStart(2, "0");
+      const key = `${year}-${month}`;
+
+      if (!monthMap.has(key)) {
+        monthMap.set(key, { alertes: 0, resolues: 0 });
+      }
+      const entry = monthMap.get(key)!;
+      entry.alertes += 1;
+      if (alert.statut === "resolue") {
+        entry.resolues += 1;
+      }
+    });
+
+    const months = [
+      "Jan",
+      "Fév",
+      "Mar",
+      "Avr",
+      "Mai",
+      "Juin",
+      "Juil",
+      "Août",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Déc",
+    ];
+    const result = [];
+    for (let i = monthsNum - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const key = `${year}-${month}`;
+      const data = monthMap.get(key) ?? { alertes: 0, resolues: 0 };
+      result.push({
+        mois: months[d.getMonth()],
+        alertes: data.alertes,
+        resolues: data.resolues,
+      });
+    }
+    return result;
+  }, [allAlerts, monthsNum]);
+
+  const categoriesData = useMemo(() => {
+    if (!categoriesStats) return [];
+    return categoriesStats.map((c) => ({
+      nom: c.nom as string,
+      part: c.total as number,
+    }));
+  }, [categoriesStats]);
+
+  const regionsData = useMemo(() => {
+    if (!regionsStats) return [];
+    return regionsStats.map((r) => ({
+      region: r.nom as string,
+      alertes: r.total as number,
+      critiques: r.critiques as number,
+    }));
+  }, [regionsStats]);
+
+  const sourcesData = useMemo(() => {
+    if (!sourcesStats) return [];
+    const sourceColors = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4"];
+    const total = sourcesStats.reduce((sum: number, s) => sum + (s.total as number), 0);
+    return sourcesStats.map((s, i: number) => ({
+      nom: s.nom as string,
+      part: total ? Math.round(((s.total as number) / total) * 100) : 0,
+      couleur: sourceColors[i % sourceColors.length],
+    }));
+  }, [sourcesStats]);
+
+  const topAnalystes = useMemo(() => {
+    if (!analystsStats) return [];
+    return analystsStats.map((a) => ({
+      nom: a.nom as string,
+      moyenne: formatDuree(a.duree_moyenne_resolution as number | null),
+      traites: a.total_traites as number,
+      score:
+        (a.total_traites as number) > 0
+          ? Math.round(((a.total_resolus as number) / (a.total_traites as number)) * 100)
+          : 0,
+    }));
+  }, [analystsStats]);
+
   return (
     <AppLayout title="Statistiques" subtitle="Analyse comparative et tendances">
       <div className="mx-auto max-w-[1600px] px-4 py-6 lg:px-8 space-y-6">
@@ -70,7 +179,7 @@ function StatsPage() {
           description="Suivi consolidé des performances opérationnelles, régionales et institutionnelles."
           actions={
             <>
-              <Select defaultValue="12">
+              <Select value={monthsRange} onValueChange={setMonthsRange}>
                 <SelectTrigger className="h-9 w-[160px] text-[12.5px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -94,7 +203,7 @@ function StatsPage() {
           <Card className="shadow-elev-1 lg:col-span-2">
             <CardHeader>
               <CardTitle className="text-[13.5px] font-semibold">
-                Alertes vs Résolutions (12 mois)
+                Alertes vs Résolutions ({monthsRange} mois)
               </CardTitle>
             </CardHeader>
             <CardContent>
