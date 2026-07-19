@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader, SeverityBadge, StatusPill } from "@/components/AppLayout";
@@ -21,7 +22,9 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Download, Filter, Search, SlidersHorizontal } from "lucide-react";
-import { alerts, formatDateTime } from "@/lib/mock-data";
+import { formatDateTime, regions } from "@/lib/mock-data";
+import type { Database } from "@/integrations/supabase/types";
+import { useAlertesDashboard } from "@/lib/queries/alertes";
 import {
   Pagination,
   PaginationContent,
@@ -45,11 +48,61 @@ export const Route = createFileRoute("/alertes")({
   component: AlertesPage,
 });
 
+const ITEMS_PER_PAGE = 24;
+
 function AlertesPage() {
+  const { data: allAlerts } = useAlertesDashboard({ limit: 500 });
+  const [search, setSearch] = useState("");
+  const [severity, setSeverity] = useState<string>("all");
+  const [source, setSource] = useState<string>("all");
+  const [region, setRegion] = useState<string>("all");
+  const [page, setPage] = useState(1);
+
+  const sources = useMemo(() => {
+    if (!allAlerts) return [];
+    return Array.from(new Set(allAlerts.map((a) => a.source).filter(Boolean))) as string[];
+  }, [allAlerts]);
+
+  const filteredAlerts = useMemo(() => {
+    if (!allAlerts) return [];
+    return allAlerts.filter((a) => {
+      if (search) {
+        const q = search.toLowerCase();
+        if (!`${a.reference} ${a.titre} ${a.mots_cles?.join(" ")}`.toLowerCase().includes(q)) {
+          return false;
+        }
+      }
+      if (severity !== "all" && a.severite !== severity) {
+        return false;
+      }
+      if (source !== "all" && a.source !== source) {
+        return false;
+      }
+      if (region !== "all" && a.region !== region) {
+        return false;
+      }
+      return true;
+    });
+  }, [allAlerts, search, severity, source, region]);
+
+  const totalItems = filteredAlerts.length;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const startIdx = (page - 1) * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const pageItems = filteredAlerts.slice(startIdx, endIdx);
+
+  const handleReset = () => {
+    setSearch("");
+    setSeverity("all");
+    setSource("all");
+    setRegion("all");
+    setPage(1);
+  };
+
   return (
     <AppLayout
       title="Alertes"
-      subtitle={`${alerts.length} alertes · mise à jour en temps réel`}
+      subtitle={`${totalItems} alertes · mise à jour en temps réel`}
       actions={
         <>
           <Button variant="outline" size="sm" className="h-9 gap-1.5">
@@ -75,47 +128,79 @@ function AlertesPage() {
               <Input
                 placeholder="Rechercher une alerte, un mot-clé, une référence…"
                 className="h-9 pl-8 text-[12.5px]"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
               />
             </div>
-            <Select defaultValue="all">
+            <Select
+              value={severity}
+              onValueChange={(v) => {
+                setSeverity(v);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="h-9 w-[150px] text-[12px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les niveaux</SelectItem>
                 <SelectItem value="critique">Critique</SelectItem>
-                <SelectItem value="eleve">Élevé</SelectItem>
-                <SelectItem value="moyen">Moyen</SelectItem>
+                <SelectItem value="elevee">Élevée</SelectItem>
+                <SelectItem value="moyenne">Moyenne</SelectItem>
                 <SelectItem value="faible">Faible</SelectItem>
+                <SelectItem value="info">Info</SelectItem>
               </SelectContent>
             </Select>
-            <Select defaultValue="all">
+            <Select
+              value={source}
+              onValueChange={(v) => {
+                setSource(v);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="h-9 w-[150px] text-[12px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Toutes plateformes</SelectItem>
-                <SelectItem value="fb">Facebook</SelectItem>
-                <SelectItem value="wa">WhatsApp</SelectItem>
-                <SelectItem value="tt">TikTok</SelectItem>
-                <SelectItem value="x">X (Twitter)</SelectItem>
+                {sources.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <Select defaultValue="all">
+            <Select
+              value={region}
+              onValueChange={(v) => {
+                setRegion(v);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="h-9 w-[150px] text-[12px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Toutes régions</SelectItem>
-                <SelectItem value="centre">Centre</SelectItem>
-                <SelectItem value="littoral">Littoral</SelectItem>
-                <SelectItem value="ouest">Ouest</SelectItem>
+                {regions.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Button variant="outline" size="sm" className="h-9 gap-1.5">
               <SlidersHorizontal className="h-3.5 w-3.5" /> Filtres avancés
             </Button>
-            <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 gap-1.5 text-muted-foreground"
+              onClick={handleReset}
+            >
               <Filter className="h-3.5 w-3.5" /> Réinitialiser
             </Button>
           </div>
@@ -138,7 +223,7 @@ function AlertesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {alerts.map((a) => (
+                {pageItems.map((a) => (
                   <TableRow key={a.id} className="cursor-pointer">
                     <TableCell>
                       <Checkbox />
@@ -148,9 +233,7 @@ function AlertesPage() {
                         {a.reference}
                       </span>
                     </TableCell>
-                    <TableCell>
-                      <SeverityBadge level={a.severite} />
-                    </TableCell>
+                    <TableCell>{a.severite && <SeverityBadge level={a.severite} />}</TableCell>
                     <TableCell>
                       <Link
                         to="/alertes"
@@ -162,19 +245,17 @@ function AlertesPage() {
                         {a.categorie}
                       </div>
                     </TableCell>
-                    <TableCell className="text-[12px] text-foreground">{a.source}</TableCell>
+                    <TableCell className="text-[12px] text-foreground">{a.source ?? "—"}</TableCell>
                     <TableCell className="text-[12px] text-muted-foreground">
-                      {a.ville}, {a.region}
+                      {a.ville ?? "—"}, {a.region ?? "—"}
                     </TableCell>
                     <TableCell className="font-mono text-[11.5px] text-muted-foreground">
-                      {formatDateTime(a.detecte)}
+                      {a.detecte ? formatDateTime(a.detecte) : "—"}
                     </TableCell>
                     <TableCell className="text-right tabular-nums font-semibold text-[13px]">
                       {a.score}
                     </TableCell>
-                    <TableCell>
-                      <StatusPill status={a.statut} />
-                    </TableCell>
+                    <TableCell>{a.statut && <StatusPill status={a.statut} />}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -183,33 +264,65 @@ function AlertesPage() {
 
           <div className="flex items-center justify-between border-t border-border px-4 py-3 text-[12px] text-muted-foreground">
             <div>
-              Affichage de <span className="font-medium text-foreground">1–24</span> sur{" "}
-              <span className="font-medium text-foreground">1 284</span> alertes
+              Affichage de{" "}
+              <span className="font-medium text-foreground">
+                {totalItems === 0 ? 0 : startIdx + 1}–{Math.min(endIdx, totalItems)}
+              </span>{" "}
+              sur <span className="font-medium text-foreground">{totalItems}</span> alertes
             </div>
             <Pagination className="mx-0 w-auto">
               <PaginationContent>
                 <PaginationItem>
-                  <PaginationPrevious href="#" />
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (page > 1) setPage(page - 1);
+                    }}
+                  />
                 </PaginationItem>
+                {Array.from({ length: totalPages }).map((_, i) => {
+                  const p = i + 1;
+                  if (
+                    totalPages <= 7 ||
+                    i < 2 ||
+                    i >= totalPages - 2 ||
+                    Math.abs(i - (page - 1)) < 2
+                  ) {
+                    return (
+                      <PaginationItem key={p}>
+                        <PaginationLink
+                          href="#"
+                          isActive={p === page}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setPage(p);
+                          }}
+                        >
+                          {p}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  }
+                  if (i === 2 && page > 4) {
+                    return (
+                      <PaginationItem key="ellipsis">
+                        <PaginationLink href="#" disabled>
+                          …
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  }
+                  return null;
+                })}
                 <PaginationItem>
-                  <PaginationLink href="#" isActive>
-                    1
-                  </PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#">2</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#">3</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#">…</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#">54</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext href="#" />
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (page < totalPages) setPage(page + 1);
+                    }}
+                  />
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
