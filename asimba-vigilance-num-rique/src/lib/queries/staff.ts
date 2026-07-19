@@ -202,7 +202,7 @@ export function usePreferences() {
         .from("preferences_utilisateur")
         .select("*")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -210,6 +210,7 @@ export function usePreferences() {
   });
 }
 
+// Pas de trigger d'auto-création à l'inscription : upsert pour créer la ligne au premier enregistrement.
 export function useUpdatePreferences() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -221,12 +222,51 @@ export function useUpdatePreferences() {
 
       const { error } = await supabase
         .from("preferences_utilisateur")
-        .update(values)
-        .eq("user_id", user.id);
+        .upsert({ user_id: user.id, ...values }, { onConflict: "user_id" });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.preferences(undefined) });
+    },
+  });
+}
+
+// === PROFILE ===
+export function useProfile() {
+  return useQuery({
+    queryKey: queryKeys.profile(undefined),
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, telephone, fonction, langue, avatar_url, institution_id, institutions(nom)")
+        .eq("id", user.id)
+        .single();
+      if (error) throw error;
+      return { ...data, email: user.email ?? null };
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: TablesUpdate<"profiles">) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase.from("profiles").update(values).eq("id", user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile(undefined) });
     },
   });
 }
@@ -260,10 +300,10 @@ export function useUtilisateurs() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name, institution_id, institutions(nom, sigle)")
+        .select("id, full_name, institution_id, institutions(nom, sigle)")
         .returns<
           Array<{
-            user_id: string;
+            id: string;
             full_name: string | null;
             institution_id: string | null;
             institutions: { nom: string; sigle: string } | null;
@@ -292,7 +332,8 @@ export function useUtilisateurs() {
 
       return (data || []).map((p) => ({
         ...p,
-        role: highestRole(p.user_id),
+        user_id: p.id,
+        role: highestRole(p.id),
       }));
     },
     staleTime: 30_000,

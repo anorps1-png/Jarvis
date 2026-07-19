@@ -73,3 +73,39 @@ export function useSignOut() {
     navigate({ to: "/connexion" });
   };
 }
+
+// === MFA (TOTP) — supabase.auth.mfa ===
+
+/** Liste les facteurs TOTP vérifiés de l'utilisateur courant. */
+export async function listMfaFactors() {
+  const { data, error } = await supabase.auth.mfa.listFactors();
+  if (error) throw error;
+  return data.totp;
+}
+
+/** Démarre l'enrollment TOTP : renvoie le QR code (data URI) et le secret. */
+export async function enrollMfa() {
+  const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+  if (error) throw error;
+  return data;
+}
+
+/** Vérifie le premier code saisi et active le facteur (challenge + verify). */
+export async function verifyMfaEnrollment(factorId: string, code: string) {
+  const { data: challenge, error: challengeError } =
+    await supabase.auth.mfa.challenge({ factorId });
+  if (challengeError) throw challengeError;
+
+  const { error: verifyError } = await supabase.auth.mfa.verify({
+    factorId,
+    challengeId: challenge.id,
+    code,
+  });
+  if (verifyError) throw verifyError;
+}
+
+/** Désactive un facteur MFA. */
+export async function unenrollMfa(factorId: string) {
+  const { error } = await supabase.auth.mfa.unenroll({ factorId });
+  if (error) throw error;
+}
