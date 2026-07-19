@@ -33,7 +33,7 @@ import {
   XCircle,
   Globe,
 } from "lucide-react";
-import { factChecks, type Alert } from "@/lib/mock-data";
+import { useCreateFactCheck } from "@/lib/queries/staff";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -427,6 +427,7 @@ function AnalyseIAPage() {
   const [scanStepMsg, setScanStepMsg] = useState("");
   const [scannedComments, setScannedComments] = useState<ScannedComment[]>([]);
   const [factcheckedIds, setFactcheckedIds] = useState<Record<string, boolean>>({});
+  const { mutate: createFactCheck } = useCreateFactCheck();
 
   useEffect(() => {
     if (platform === "facebook") {
@@ -618,25 +619,30 @@ function AnalyseIAPage() {
   };
 
   const createFactcheck = (c: ScannedComment, index: number) => {
-    const fcRef = `fc-scanned-${Date.now()}`;
-
-    // Add to mock-data factChecks array
-    factChecks.unshift({
-      id: fcRef,
-      affirmation: c.text,
-      // Le bouton qui déclenche createFactcheck n'est rendu que pour "faux"/"trompeur".
-      statut: c.verdict as "faux" | "trompeur",
-      confiance: c.score,
-      sources: c.sources,
-      conclusion: c.conclusion,
-      date: new Date().toISOString().split("T")[0],
-    });
-
-    setFactcheckedIds((prev) => ({ ...prev, [index]: true }));
-
-    toast.success("Fact-check créé avec succès !", {
-      description: `L'affirmation a été poussée dans la base publique de vérification.`,
-    });
+    createFactCheck(
+      {
+        affirmation: c.text,
+        titre: c.category,
+        // Le bouton qui déclenche createFactcheck n'est rendu que pour "faux"/"trompeur".
+        verdict: c.verdict as "faux" | "trompeur",
+        confiance: c.score,
+        sources: c.sources,
+        justification: c.conclusion,
+      },
+      {
+        onSuccess: () => {
+          setFactcheckedIds((prev) => ({ ...prev, [index]: true }));
+          toast.success("Fact-check créé avec succès !", {
+            description: `L'affirmation a été poussée dans la base publique de vérification.`,
+          });
+        },
+        onError: (err) => {
+          toast.error("Échec de la création du fact-check", {
+            description: err instanceof Error ? err.message : String(err),
+          });
+        },
+      },
+    );
   };
 
   return (

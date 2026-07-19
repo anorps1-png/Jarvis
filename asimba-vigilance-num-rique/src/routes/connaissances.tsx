@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Video, HelpCircle, Shield, ChevronRight, Search } from "lucide-react";
-import { articles } from "@/lib/mock-data";
+import { useArticles } from "@/lib/queries/staff";
 
 export const Route = createFileRoute("/connaissances")({
   beforeLoad: ({ location }) => requireAuth(location),
@@ -42,6 +42,20 @@ const faq = [
 ];
 
 function KnowledgePage() {
+  const { data: articles, isLoading } = useArticles(true);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filtered = useMemo(() => {
+    if (!articles) return [];
+    const lower = searchTerm.toLowerCase();
+    return articles.filter(
+      (a) =>
+        a.titre.toLowerCase().includes(lower) ||
+        (a.resume?.toLowerCase() ?? "").includes(lower) ||
+        a.categorie.toLowerCase().includes(lower),
+    );
+  }, [articles, searchTerm]);
+
   return (
     <AppLayout title="Base documentaire" subtitle="Ressources et sensibilisation">
       <div className="mx-auto max-w-[1400px] px-4 py-6 lg:px-8 space-y-6">
@@ -57,62 +71,56 @@ function KnowledgePage() {
             <Input
               placeholder="Rechercher un article, un guide, une vidéo…"
               className="h-11 pl-9"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
-            {[
-              "Cybersécurité",
-              "Citoyenneté numérique",
-              "Éducation aux médias",
-              "Protection de l'enfance",
-              "Fact-checking",
-            ].map((t) => (
-              <button
-                key={t}
-                className="rounded-full border border-border bg-card px-3 py-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                {t}
-              </button>
-            ))}
           </div>
         </Card>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {articles.map((a, i) => {
-            const icons = [BookOpen, Shield, Video];
-            const Icon = icons[i % icons.length];
-            return (
-              <Card
-                key={a.id}
-                className="shadow-elev-1 group cursor-pointer hover:shadow-elev-2 transition-shadow"
-              >
-                <div className="h-32 relative bg-gradient-to-br from-primary/10 via-primary/5 to-info/10 border-b border-border rounded-t-xl flex items-center justify-center">
-                  <Icon className="h-10 w-10 text-primary/60" />
-                  <Badge
-                    className="absolute top-3 left-3 bg-card text-foreground border-border"
-                    variant="outline"
-                  >
-                    {a.categorie}
-                  </Badge>
-                </div>
-                <CardContent className="p-4">
-                  <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">
-                    Lecture · {a.duree}
+        {isLoading ? (
+          <div className="text-center text-muted-foreground py-8">Chargement...</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8">
+            {searchTerm ? "Aucun article trouvé" : "Aucun article publié"}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((a, i) => {
+              const icons = [BookOpen, Shield, Video];
+              const Icon = icons[i % icons.length];
+              return (
+                <Card
+                  key={a.id}
+                  className="shadow-elev-1 group cursor-pointer hover:shadow-elev-2 transition-shadow"
+                >
+                  <div className="h-32 relative bg-gradient-to-br from-primary/10 via-primary/5 to-info/10 border-b border-border rounded-t-xl flex items-center justify-center">
+                    <Icon className="h-10 w-10 text-primary/60" />
+                    <Badge
+                      className="absolute top-3 left-3 bg-card text-foreground border-border"
+                      variant="outline"
+                    >
+                      {a.categorie}
+                    </Badge>
                   </div>
-                  <div className="mt-1 text-[14px] font-semibold group-hover:text-primary transition-colors">
-                    {a.titre}
-                  </div>
-                  <p className="mt-1.5 text-[12px] text-muted-foreground line-clamp-2">
-                    {a.resume}
-                  </p>
-                  <div className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-primary">
-                    Lire l'article <ChevronRight className="h-3.5 w-3.5" />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  <CardContent className="p-4">
+                    <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">
+                      Lecture · {a.duree_lecture_min ?? "?"} min
+                    </div>
+                    <div className="mt-1 text-[14px] font-semibold group-hover:text-primary transition-colors">
+                      {a.titre}
+                    </div>
+                    <p className="mt-1.5 text-[12px] text-muted-foreground line-clamp-2">
+                      {a.resume}
+                    </p>
+                    <div className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-primary">
+                      Lire l'article <ChevronRight className="h-3.5 w-3.5" />
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
         <Card className="shadow-elev-1">
           <div className="border-b border-border p-5">
