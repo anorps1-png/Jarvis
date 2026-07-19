@@ -209,3 +209,113 @@ export function useUpdatePreferences() {
     },
   });
 }
+
+// === AUDIT LOGS ===
+export function useAuditLogs(filters: Record<string, unknown> = {}) {
+  return useQuery({
+    queryKey: queryKeys.auditLogs(filters),
+    queryFn: async () => {
+      let query = supabase.from("audit_logs").select("*");
+
+      // Apply filters if provided
+      if (filters.action) query = query.eq("action", filters.action as string);
+      if (filters.niveau) query = query.eq("niveau", filters.niveau as string);
+      if (filters.acteur_id) query = query.eq("acteur_id", filters.acteur_id as string);
+
+      const { data, error } = await query.order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 5_000,
+  });
+}
+
+// === UTILISATEURS (PROFILES + USER_ROLES) ===
+export function useUtilisateurs() {
+  return useQuery({
+    queryKey: queryKeys.utilisateurs(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, institution_id, institutions!inner(nom, sigle)")
+        .returns<
+          Array<{
+            user_id: string;
+            full_name: string | null;
+            institution_id: string | null;
+            institutions: { nom: string; sigle: string } | null;
+          }>
+        >();
+
+      if (error) throw error;
+
+      const { data: roles, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("user_id, role");
+
+      if (rolesError) throw rolesError;
+
+      const roleMap = new Map(roles?.map((r) => [r.user_id, r.role]) || []);
+
+      return (data || []).map((p) => ({
+        ...p,
+        role: roleMap.get(p.user_id) || "user",
+      }));
+    },
+    staleTime: 30_000,
+  });
+}
+
+// === FACT CHECKS ===
+export function useFactChecks(filters: Record<string, unknown> = {}) {
+  return useQuery({
+    queryKey: queryKeys.factChecks(filters),
+    queryFn: async () => {
+      let query = supabase.from("fact_checks").select("*");
+
+      if (filters.publie) query = query.eq("publie", filters.publie as boolean);
+      if (filters.verdict) query = query.eq("verdict", filters.verdict as string);
+
+      const { data, error } = await query.order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 10_000,
+  });
+}
+
+export function useCreateFactCheck() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: TablesInsert<"fact_checks">) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase
+        .from("fact_checks")
+        .insert([{ ...values, auteur_id: user.id }])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.factChecks({}) });
+    },
+  });
+}
+
+export function useUpdateFactCheck() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...values }: { id: string } & TablesUpdate<"fact_checks">) => {
+      const { error } = await supabase.from("fact_checks").update(values).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.factChecks({}) });
+    },
+  });
+}

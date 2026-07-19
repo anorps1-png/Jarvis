@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState, useMemo } from "react";
 import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
@@ -21,7 +22,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search, Download } from "lucide-react";
-import { auditLogs, formatDateTime } from "@/lib/mock-data";
+import { useAuditLogs } from "@/lib/queries/staff";
+import type { Database } from "@/integrations/supabase/types";
+
+type AuditLog = Database["public"]["Tables"]["audit_logs"]["Row"];
 
 export const Route = createFileRoute("/audit")({
   beforeLoad: ({ location }) => requireAuth(location),
@@ -38,6 +42,51 @@ export const Route = createFileRoute("/audit")({
 });
 
 function AuditPage() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [niveauFilter, setNiveauFilter] = useState("all");
+  const { data: logs, isLoading } = useAuditLogs();
+
+  const filteredLogs = useMemo(() => {
+    if (!logs) return [];
+    return logs.filter((log: AuditLog) => {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch =
+        !searchTerm ||
+        log.action.toLowerCase().includes(searchLower) ||
+        log.cible.toLowerCase().includes(searchLower) ||
+        (log.ip && log.ip.toString().includes(searchLower));
+
+      const matchesNiveau = niveauFilter === "all" || log.niveau === niveauFilter;
+      return matchesSearch && matchesNiveau;
+    });
+  }, [logs, searchTerm, niveauFilter]);
+
+  const handleExport = () => {
+    const csv = [
+      ["Horodatage", "Niveau", "Action", "Cible", "IP", "Utilisateur"],
+      ...filteredLogs.map((l: AuditLog) => [
+        new Date(l.created_at).toISOString(),
+        l.niveau,
+        l.action,
+        l.cible,
+        l.ip || "",
+        l.acteur_id || "",
+      ]),
+    ]
+      .map((row) => row.map((cell) => `"${cell}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `audit-${new Date().toISOString()}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <AppLayout title="Journal d'audit" subtitle="Traçabilité et conformité">
       <div className="mx-auto max-w-[1600px] px-4 py-6 lg:px-8 space-y-5">
@@ -46,7 +95,7 @@ function AuditPage() {
           title="Journal d'audit"
           description="Chaque action sensible est enregistrée, horodatée et signée. Ces journaux sont exportables pour audit externe."
           actions={
-            <Button variant="outline" size="sm" className="h-9 gap-1.5">
+            <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={handleExport}>
               <Download className="h-3.5 w-3.5" /> Exporter le journal
             </Button>
           }
@@ -55,9 +104,14 @@ function AuditPage() {
           <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
             <div className="relative flex-1 min-w-[220px]">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Rechercher action, utilisateur, IP…" className="h-9 pl-8" />
+              <Input
+                placeholder="Rechercher action, cible, IP…"
+                className="h-9 pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-            <Select defaultValue="all">
+            <Select value={niveauFilter} onValueChange={setNiveauFilter}>
               <SelectTrigger className="h-9 w-[140px] text-[12px]">
                 <SelectValue />
               </SelectTrigger>
@@ -69,49 +123,53 @@ function AuditPage() {
               </SelectContent>
             </Select>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[170px]">Horodatage</TableHead>
-                <TableHead className="w-[110px]">Niveau</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Cible</TableHead>
-                <TableHead>Utilisateur</TableHead>
-                <TableHead className="w-[140px]">IP</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {auditLogs.map((l) => (
-                <TableRow key={l.id}>
-                  <TableCell className="font-mono text-[11.5px] text-muted-foreground">
-                    {formatDateTime(l.horodatage)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={
-                        l.niveau === "critical"
-                          ? "text-destructive border-destructive/30 bg-destructive/5"
-                          : l.niveau === "warning"
-                            ? "text-[color:oklch(0.45_0.15_60)] border-warning/40 bg-warning/10"
-                            : "text-muted-foreground"
-                      }
-                    >
-                      {l.niveau}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-[12.5px] font-medium">{l.action}</TableCell>
-                  <TableCell className="font-mono text-[11.5px] text-muted-foreground">
-                    {l.cible}
-                  </TableCell>
-                  <TableCell className="text-[12px]">{l.utilisateur}</TableCell>
-                  <TableCell className="font-mono text-[11.5px] text-muted-foreground">
-                    {l.ip}
-                  </TableCell>
+          {isLoading ? (
+            <div className="p-4 text-center text-muted-foreground">Chargement...</div>
+          ) : filteredLogs.length === 0 ? (
+            <div className="p-4 text-center text-muted-foreground">Aucun log d'audit</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[170px]">Horodatage</TableHead>
+                  <TableHead className="w-[110px]">Niveau</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Cible</TableHead>
+                  <TableHead className="w-[140px]">IP</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredLogs.map((log: AuditLog) => (
+                  <TableRow key={log.id}>
+                    <TableCell className="font-mono text-[11.5px] text-muted-foreground">
+                      {new Date(log.created_at).toLocaleString("fr-FR")}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={
+                          log.niveau === "critical"
+                            ? "text-destructive border-destructive/30 bg-destructive/5"
+                            : log.niveau === "warning"
+                              ? "text-[color:oklch(0.45_0.15_60)] border-warning/40 bg-warning/10"
+                              : "text-muted-foreground"
+                        }
+                      >
+                        {log.niveau}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-[12.5px] font-medium">{log.action}</TableCell>
+                    <TableCell className="font-mono text-[11.5px] text-muted-foreground">
+                      {log.cible}
+                    </TableCell>
+                    <TableCell className="font-mono text-[11.5px] text-muted-foreground">
+                      {log.ip ? log.ip.toString() : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </Card>
       </div>
     </AppLayout>

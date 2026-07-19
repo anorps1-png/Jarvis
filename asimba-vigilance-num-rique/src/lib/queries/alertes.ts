@@ -1,7 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { queryKeys } from "./query-keys";
+
+type TablesUpdate<T extends keyof Database["public"]["Tables"]> =
+  Database["public"]["Tables"][T]["Update"];
 
 export type AlertesFilters = {
   region?: string;
@@ -118,5 +121,71 @@ export function useTopAnalystes() {
       return data;
     },
     staleTime: 60_000,
+  });
+}
+
+/** Alerte détaillée par ID. */
+export function useGetAlert(id: string) {
+  return useQuery({
+    queryKey: ["alertes", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("alertes")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+    staleTime: 10_000,
+  });
+}
+
+export function useAssignAlert() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, assignee_id }: { id: string; assignee_id: string }) => {
+      const { error } = await supabase
+        .from("alertes")
+        .update({ assignee_id })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.alertesDashboard({}) });
+    },
+  });
+}
+
+export function useCloseAlert() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("alertes")
+        .update({ statut: "resolue" as const, resolue_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.alertesDashboard({}) });
+    },
+  });
+}
+
+export function usePublishAlert() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("fact_checks")
+        .update({ publie: true, publie_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.factChecks({}) });
+    },
   });
 }
