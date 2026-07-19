@@ -32,13 +32,19 @@ export const Route = createFileRoute("/incidents")({
 });
 
 function IncidentsPage() {
-  const { data: alerts, isLoading } = useAlertesDashboard({ statut: "active" });
+  const { data: alerts, isLoading } = useAlertesDashboard();
   const { mutate: assign } = useAssignAlert();
   const { mutate: close } = useCloseAlert();
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const listItems = useMemo(() => alerts?.slice(0, 8) ?? [], [alerts]);
+  const listItems = useMemo(
+    () =>
+      (alerts ?? [])
+        .filter((a: AlertDashboard) => a.statut !== "resolu" && a.statut !== "clos")
+        .slice(0, 8),
+    [alerts],
+  );
   const selectedAlert = useMemo(
     () => listItems.find((a: AlertDashboard) => a.id === selectedId) ?? listItems[0],
     [listItems, selectedId],
@@ -89,9 +95,9 @@ function IncidentsPage() {
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-mono text-[11px] text-muted-foreground">
-                      #{a.reference?.slice(-6) || a.id.slice(-6)}
+                      #{a.reference?.slice(-6) || a.id?.slice(-6)}
                     </span>
-                    {a.severite && <SeverityBadge level={a.severite as string} />}
+                    {a.severite && <SeverityBadge level={a.severite} />}
                   </div>
                   <div className="text-[12.5px] font-medium text-foreground truncate">
                     {a.titre}
@@ -112,12 +118,12 @@ function IncidentsPage() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="font-mono text-[11.5px] text-muted-foreground">
-                        #{selectedAlert.reference?.slice(-6) || selectedAlert.id.slice(-6)}
+                        #{selectedAlert.reference?.slice(-6) || selectedAlert.id?.slice(-6)}
                       </span>
                       {selectedAlert.severite && (
-                        <SeverityBadge level={selectedAlert.severite as string} />
+                        <SeverityBadge level={selectedAlert.severite} />
                       )}
-                      <StatusPill status={selectedAlert.statut as string} />
+                      {selectedAlert.statut && <StatusPill status={selectedAlert.statut} />}
                     </div>
                     <h2 className="text-[17px] font-semibold text-foreground">
                       {selectedAlert.titre}
@@ -132,16 +138,14 @@ function IncidentsPage() {
                       variant="outline"
                       size="sm"
                       className="h-9 gap-1.5"
-                      onClick={() =>
-                        assign({ id: selectedAlert.id, assignee_id: "current-user-id" })
-                      }
+                      onClick={() => selectedAlert.id && assign(selectedAlert.id)}
                     >
                       <UserPlus className="h-3.5 w-3.5" /> Assigner
                     </Button>
                     <Button
                       size="sm"
                       className="h-9 gap-1.5"
-                      onClick={() => close(selectedAlert.id)}
+                      onClick={() => selectedAlert.id && close(selectedAlert.id)}
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" /> Clôturer
                     </Button>

@@ -196,17 +196,17 @@ function DashboardPage() {
     faibles: e.faibles,
   }));
 
-  const totalSources = (sources ?? []).reduce((sum, s) => sum + s.total, 0);
+  const totalSources = (sources ?? []).reduce((sum, s) => sum + (s.total ?? 0), 0);
   const sourcesData = (sources ?? []).map((s, i) => ({
     nom: s.source ?? "Autre",
-    part: totalSources > 0 ? Math.round((s.total / totalSources) * 100) : 0,
+    part: totalSources > 0 ? Math.round(((s.total ?? 0) / totalSources) * 100) : 0,
     couleur: CHART_COLORS[i % CHART_COLORS.length],
   }));
 
-  const totalCategories = (categories ?? []).reduce((sum, c) => sum + c.total, 0);
+  const totalCategories = (categories ?? []).reduce((sum, c) => sum + (c.total ?? 0), 0);
   const categoriesData = (categories ?? []).map((c) => ({
     nom: c.categorie ?? "Autre",
-    part: totalCategories > 0 ? Math.round((c.total / totalCategories) * 100) : 0,
+    part: totalCategories > 0 ? Math.round(((c.total ?? 0) / totalCategories) * 100) : 0,
   }));
 
   const regionsData = (regions ?? []).map((r) => ({
@@ -624,8 +624,11 @@ function DashboardPage() {
                 <EmptyHint label="Aucune assignation encore enregistrée." />
               ) : (
                 (analystes ?? []).map((a, i) => {
+                  const totalTraites = a.total_traites ?? 0;
                   const tauxResolution =
-                    a.total_traites > 0 ? Math.round((a.total_resolus / a.total_traites) * 100) : 0;
+                    totalTraites > 0
+                      ? Math.round(((a.total_resolus ?? 0) / totalTraites) * 100)
+                      : 0;
                   return (
                     <div key={a.assignee_id} className="flex items-center gap-3">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[12px] font-semibold text-primary">
@@ -635,7 +638,7 @@ function DashboardPage() {
                         <div className="flex items-center justify-between text-[12.5px]">
                           <span className="font-medium truncate">{a.analyste}</span>
                           <span className="tabular-nums text-muted-foreground">
-                            {a.total_traites}
+                            {totalTraites}
                           </span>
                         </div>
                         <div className="mt-1 flex items-center gap-2">
@@ -645,7 +648,7 @@ function DashboardPage() {
                           </span>
                         </div>
                         <div className="mt-0.5 text-[10.5px] text-muted-foreground">
-                          Temps moyen · {formatDuree(a.duree_moyenne_resolution)}
+                          Temps moyen · {a.duree_moyenne_resolution ?? "—"}
                         </div>
                       </div>
                     </div>

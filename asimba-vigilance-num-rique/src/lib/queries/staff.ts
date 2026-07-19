@@ -152,6 +152,27 @@ export function useIaConfig() {
   });
 }
 
+export function useUpdateIaConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: TablesUpdate<"ia_config">) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("ia_config")
+        .update({ ...values, updated_by: user.id })
+        .eq("id", 1);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.iaConfig() });
+    },
+  });
+}
+
 export function useIaModeles() {
   return useQuery({
     queryKey: queryKeys.iaModeles(),
@@ -218,8 +239,10 @@ export function useAuditLogs(filters: Record<string, unknown> = {}) {
       let query = supabase.from("audit_logs").select("*");
 
       // Apply filters if provided
-      if (filters.action) query = query.eq("action", filters.action as string);
-      if (filters.niveau) query = query.eq("niveau", filters.niveau as string);
+      if (filters.action)
+        query = query.eq("action", filters.action as Database["public"]["Enums"]["audit_action"]);
+      if (filters.niveau)
+        query = query.eq("niveau", filters.niveau as Database["public"]["Enums"]["audit_niveau"]);
       if (filters.acteur_id) query = query.eq("acteur_id", filters.acteur_id as string);
 
       const { data, error } = await query.order("created_at", { ascending: false });
@@ -237,7 +260,7 @@ export function useUtilisateurs() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("user_id, full_name, institution_id, institutions!inner(nom, sigle)")
+        .select("user_id, full_name, institution_id, institutions(nom, sigle)")
         .returns<
           Array<{
             user_id: string;
@@ -255,11 +278,21 @@ export function useUtilisateurs() {
 
       if (rolesError) throw rolesError;
 
-      const roleMap = new Map(roles?.map((r) => [r.user_id, r.role]) || []);
+      const rolesByUser = new Map<string, AppRole[]>();
+      (roles || []).forEach((r) => {
+        const list = rolesByUser.get(r.user_id) || [];
+        list.push(r.role);
+        rolesByUser.set(r.user_id, list);
+      });
+
+      const highestRole = (userId: string): AppRole => {
+        const userRoles = rolesByUser.get(userId) || [];
+        return ROLE_PRIORITY.find((r) => userRoles.includes(r)) ?? "citoyen";
+      };
 
       return (data || []).map((p) => ({
         ...p,
-        role: roleMap.get(p.user_id) || "user",
+        role: highestRole(p.user_id),
       }));
     },
     staleTime: 30_000,
@@ -274,7 +307,11 @@ export function useFactChecks(filters: Record<string, unknown> = {}) {
       let query = supabase.from("fact_checks").select("*");
 
       if (filters.publie) query = query.eq("publie", filters.publie as boolean);
-      if (filters.verdict) query = query.eq("verdict", filters.verdict as string);
+      if (filters.verdict)
+        query = query.eq(
+          "verdict",
+          filters.verdict as Database["public"]["Enums"]["factcheck_verdict"],
+        );
 
       const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
@@ -321,6 +358,19 @@ export function useUpdateFactCheck() {
 }
 
 // === ROLES ===
+export type AppRole = Database["public"]["Enums"]["app_role"];
+
+// Ordre de priorité décroissant, doit rester cohérent avec is_staff()/is_admin() en base.
+export const ROLE_PRIORITY: AppRole[] = [
+  "admin",
+  "manager",
+  "analyste_senior",
+  "analyste",
+  "institution",
+  "citoyen",
+];
+const STAFF_ROLES: AppRole[] = ["admin", "manager", "analyste_senior", "analyste"];
+
 export function useUserRoles() {
   return useQuery({
     queryKey: queryKeys.userRoles(undefined),
@@ -328,15 +378,14 @@ export function useUserRoles() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!user) return [];
 
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", user.id)
-        .single();
+        .eq("user_id", user.id);
       if (error) throw error;
-      return data;
+      return data.map((r) => r.role);
     },
     staleTime: 60_000,
   });
@@ -344,10 +393,118 @@ export function useUserRoles() {
 
 export function useIsAdmin() {
   const { data } = useUserRoles();
-  return data?.role === "admin";
+  return !!data?.includes("admin");
 }
 
 export function useIsStaff() {
   const { data } = useUserRoles();
-  return data?.role === "staff" || data?.role === "admin";
+  return !!data?.some((r) => STAFF_ROLES.includes(r));
+}
+
+// === USER ROLES COUNT ===
+export function useUserRolesCount() {
+  return useQuery({
+    queryKey: queryKeys.userRoles("count"),
+    queryFn: async () => {
+      const { data: allRoles, error } = await supabase.from("user_roles").select("role");
+      if (error) throw error;
+
+      const counts: Record<AppRole, number> = {
+        admin: 0,
+        manager: 0,
+        analyste_senior: 0,
+        analyste: 0,
+        institution: 0,
+        citoyen: 0,
+      };
+      (allRoles || []).forEach((r) => {
+        counts[r.role]++;
+      });
+      return counts;
+    },
+    staleTime: 60_000,
+  });
+}
+
+// === API KEYS ===
+export function useApiKeys() {
+  return useQuery({
+    queryKey: queryKeys.apiKeys(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("api_keys")
+        .select("id, nom, cle_apercu, created_at, revoked_at")
+        .is("revoked_at", null)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30_000,
+  });
+}
+
+async function sha256Hex(text: string): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(hashBuffer), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export function useCreateApiKey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (nom: string) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const randomBytes = crypto.getRandomValues(new Uint8Array(24));
+      const secret = Array.from(randomBytes, (b) => b.toString(16).padStart(2, "0")).join("");
+      const plaintext = `asmb_live_${secret}`;
+      const cle_hash = await sha256Hex(plaintext);
+      const cle_apercu = `${plaintext.slice(0, 14)}_••••••••••••${plaintext.slice(-4)}`;
+
+      const { data, error } = await supabase
+        .from("api_keys")
+        .insert([{ nom, cle_hash, cle_apercu, created_by: user.id }])
+        .select()
+        .single();
+      if (error) throw error;
+      return { ...data, plaintext };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.apiKeys() });
+    },
+  });
+}
+
+// === INTEGRATIONS ===
+export function useIntegrations() {
+  return useQuery({
+    queryKey: queryKeys.integrations(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("integrations")
+        .select("*")
+        .order("nom");
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useUpdateIntegration() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, actif }: { id: string; actif: boolean }) => {
+      const { error } = await supabase
+        .from("integrations")
+        .update({ actif })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.integrations() });
+    },
+  });
 }

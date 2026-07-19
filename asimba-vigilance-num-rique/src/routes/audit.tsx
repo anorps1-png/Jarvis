@@ -65,7 +65,7 @@ function AuditPage() {
     const csv = [
       ["Horodatage", "Niveau", "Action", "Cible", "IP", "Utilisateur"],
       ...filteredLogs.map((l: AuditLog) => [
-        new Date(l.created_at).toISOString(),
+        l.created_at ? new Date(l.created_at).toISOString() : "",
         l.niveau,
         l.action,
         l.cible,
@@ -142,7 +142,7 @@ function AuditPage() {
                 {filteredLogs.map((log: AuditLog) => (
                   <TableRow key={log.id}>
                     <TableCell className="font-mono text-[11.5px] text-muted-foreground">
-                      {new Date(log.created_at).toLocaleString("fr-FR")}
+                      {log.created_at ? new Date(log.created_at).toLocaleString("fr-FR") : "—"}
                     </TableCell>
                     <TableCell>
                       <Badge

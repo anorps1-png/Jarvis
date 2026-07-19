@@ -301,14 +301,14 @@ function NotificationsMenu() {
                 <div
                   className={cn(
                     "mt-1 h-2 w-2 shrink-0 rounded-full",
-                    n.type === "critique" ? "bg-destructive" : "bg-primary",
+                    n.type === "alerte" ? "bg-destructive" : "bg-primary",
                   )}
                 />
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">{n.titre}</div>
                   <div className="text-xs text-muted-foreground truncate">{n.corps}</div>
                   <div className="mt-1 text-[10.5px] text-muted-foreground/80">
-                    {formatTime(n.created_at)}
+                    {n.created_at ? formatTime(n.created_at) : "—"}
                   </div>
                 </div>
               </button>

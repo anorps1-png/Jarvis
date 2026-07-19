@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  type LucideIcon,
 } from "lucide-react";
 import { useFactChecks, useUpdateFactCheck } from "@/lib/queries/staff";
 import { cn } from "@/lib/utils";
@@ -36,7 +37,7 @@ export const Route = createFileRoute("/fact-checking")({
 });
 
 function StatusBadge({ verdict }: { verdict: FactCheck["verdict"] }) {
-  const map: Record<string, { c: string; i: React.ReactNode; l: string }> = {
+  const map: Record<string, { c: string; i: LucideIcon; l: string }> = {
     vrai: { c: "bg-success/10 text-success ring-success/30", i: CheckCircle2, l: "Vrai" },
     faux: { c: "bg-destructive/10 text-destructive ring-destructive/30", i: XCircle, l: "Faux" },
     trompeur: {
@@ -51,7 +52,7 @@ function StatusBadge({ verdict }: { verdict: FactCheck["verdict"] }) {
     },
   };
   const entry = map[verdict] || map.en_cours;
-  const I = entry.i as typeof CheckCircle2;
+  const I = entry.i;
   return (
     <span
       className={cn(
@@ -136,13 +137,13 @@ function FactPage() {
                     <div className="text-[12.5px] font-semibold">{f.titre}</div>
                   )}
                   <div className="mt-auto">
-                    {f.sources && Array.isArray(f.sources) && f.sources.length > 0 && (
+                    {Array.isArray(f.sources) && f.sources.length > 0 && (
                       <>
                         <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5">
                           Sources
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          {f.sources.map((s) => (
+                          {(f.sources as string[]).map((s) => (
                             <Badge key={s} variant="secondary" className="gap-1 text-[11px]">
                               <ExternalLink className="h-3 w-3" />
                               {s}

@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Search, MoreHorizontal } from "lucide-react";
-import { useUtilisateurs } from "@/lib/queries/staff";
+import { useUtilisateurs, type AppRole } from "@/lib/queries/staff";
 
 export const Route = createFileRoute("/utilisateurs")({
   beforeLoad: ({ location }) => requireAuth(location),
@@ -30,11 +30,13 @@ export const Route = createFileRoute("/utilisateurs")({
   component: UsersPage,
 });
 
-const roleColors: Record<string, string> = {
+const roleColors: Record<AppRole, string> = {
   admin: "text-destructive border-destructive/30 bg-destructive/5",
-  staff: "text-blue-600 border-blue-200 bg-blue-50",
-  analyst: "text-purple-600 border-purple-200 bg-purple-50",
-  user: "text-muted-foreground",
+  manager: "text-blue-600 border-blue-200 bg-blue-50",
+  analyste_senior: "text-purple-600 border-purple-200 bg-purple-50",
+  analyste: "text-purple-600 border-purple-200 bg-purple-50",
+  institution: "text-amber-600 border-amber-200 bg-amber-50",
+  citoyen: "text-muted-foreground",
 };
 
 function UsersPage() {

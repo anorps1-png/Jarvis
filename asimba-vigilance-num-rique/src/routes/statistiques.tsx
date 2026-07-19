@@ -52,14 +52,6 @@ export const Route = createFileRoute("/statistiques")({
   component: StatsPage,
 });
 
-function formatDuree(secondes: number | null): string {
-  if (!secondes) return "—";
-  const mins = Math.floor(secondes / 60);
-  const secs = Math.round(secondes % 60);
-  if (mins === 0) return `${secs}s`;
-  return `${mins}m${secs}s`;
-}
-
 function StatsPage() {
   const [monthsRange, setMonthsRange] = useState("12");
   const { data: allAlerts } = useAlertesDashboard({ limit: 5000 });
@@ -93,7 +85,7 @@ function StatsPage() {
       }
       const entry = monthMap.get(key)!;
       entry.alertes += 1;
-      if (alert.statut === "resolue") {
+      if (alert.statut === "resolu") {
         entry.resolues += 1;
       }
     });
@@ -132,27 +124,27 @@ function StatsPage() {
   const categoriesData = useMemo(() => {
     if (!categoriesStats) return [];
     return categoriesStats.map((c) => ({
-      nom: c.nom as string,
-      part: c.total as number,
+      nom: c.categorie ?? "Autre",
+      part: c.total ?? 0,
     }));
   }, [categoriesStats]);
 
   const regionsData = useMemo(() => {
     if (!regionsStats) return [];
     return regionsStats.map((r) => ({
-      region: r.nom as string,
-      alertes: r.total as number,
-      critiques: r.critiques as number,
+      region: r.region ?? "—",
+      alertes: r.total ?? 0,
+      critiques: r.critiques ?? 0,
     }));
   }, [regionsStats]);
 
   const sourcesData = useMemo(() => {
     if (!sourcesStats) return [];
     const sourceColors = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4"];
-    const total = sourcesStats.reduce((sum: number, s) => sum + (s.total as number), 0);
-    return sourcesStats.map((s, i: number) => ({
-      nom: s.nom as string,
-      part: total ? Math.round(((s.total as number) / total) * 100) : 0,
+    const total = sourcesStats.reduce((sum, s) => sum + (s.total ?? 0), 0);
+    return sourcesStats.map((s, i) => ({
+      nom: s.source ?? "—",
+      part: total ? Math.round(((s.total ?? 0) / total) * 100) : 0,
       couleur: sourceColors[i % sourceColors.length],
     }));
   }, [sourcesStats]);
@@ -160,12 +152,12 @@ function StatsPage() {
   const topAnalystes = useMemo(() => {
     if (!analystsStats) return [];
     return analystsStats.map((a) => ({
-      nom: a.nom as string,
-      moyenne: formatDuree(a.duree_moyenne_resolution as number | null),
-      traites: a.total_traites as number,
+      nom: a.analyste ?? "—",
+      moyenne: a.duree_moyenne_resolution ?? "—",
+      traites: a.total_traites ?? 0,
       score:
-        (a.total_traites as number) > 0
-          ? Math.round(((a.total_resolus as number) / (a.total_traites as number)) * 100)
+        (a.total_traites ?? 0) > 0
+          ? Math.round(((a.total_resolus ?? 0) / (a.total_traites ?? 1)) * 100)
           : 0,
     }));
   }, [analystsStats]);
@@ -460,7 +452,7 @@ function StatsPage() {
               <div className="h-[240px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
-                    data={evolutionSeries}
+                    data={evolutionData ?? []}
                     margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
                   >
                     <CartesianGrid

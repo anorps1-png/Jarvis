@@ -49,7 +49,7 @@ function CartePage() {
 
   const alerts = allAlerts ?? [];
   const stats = regionsData ?? [];
-  const maxAlerts = Math.max(...stats.map((s) => s.total), 1);
+  const maxAlerts = Math.max(...stats.map((s) => s.total ?? 0), 1);
 
   return (
     <AppLayout title="Carte des risques" subtitle="Répartition géographique · Cameroun">
@@ -143,8 +143,8 @@ function CartePage() {
                   const city = Object.values(villes).find((v) => v.region === region.region);
                   if (!city) return null;
                   const { x, y } = project(city.lat, city.lng);
-                  const intensity = 20 + (region.total / maxAlerts) * 80;
-                  const isCrit = region.critiques > 0;
+                  const intensity = 20 + ((region.total ?? 0) / maxAlerts) * 80;
+                  const isCrit = (region.critiques ?? 0) > 0;
                   return (
                     <circle
                       key={region.region}
@@ -161,7 +161,7 @@ function CartePage() {
                   const city = Object.values(villes).find((v) => v.region === region.region);
                   if (!city) return null;
                   const { x, y } = project(city.lat, city.lng);
-                  const isCrit = region.critiques > 0;
+                  const isCrit = (region.critiques ?? 0) > 0;
                   return (
                     <g key={region.region + "m"}>
                       <circle
@@ -214,7 +214,8 @@ function CartePage() {
               {stats.length > 0 && (
                 <>
                   <div className="mt-2 text-[13.5px] font-semibold">
-                    {stats[0].region} {stats[0].critiques > 0 && <SeverityBadge level="critique" />}
+                    {stats[0].region}{" "}
+                    {(stats[0].critiques ?? 0) > 0 && <SeverityBadge level="critique" />}
                   </div>
                   <div className="mt-2 text-[11.5px] text-muted-foreground">
                     {stats[0].total} alertes actives

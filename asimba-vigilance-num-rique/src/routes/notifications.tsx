@@ -101,7 +101,7 @@ function NotifPage() {
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-[13px] font-medium truncate">{n.titre}</div>
                     <div className="text-[11px] text-muted-foreground shrink-0">
-                      {formatNotificationTime(n.created_at)}
+                      {n.created_at ? formatNotificationTime(n.created_at) : "—"}
                     </div>
                   </div>
                   <div className="text-[12px] text-muted-foreground mt-0.5">{n.corps}</div>

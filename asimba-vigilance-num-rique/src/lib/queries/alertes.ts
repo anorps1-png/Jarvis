@@ -142,13 +142,19 @@ export function useGetAlert(id: string) {
   });
 }
 
+/** Assigne l'alerte à l'utilisateur actuellement connecté. */
 export function useAssignAlert() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, assignee_id }: { id: string; assignee_id: string }) => {
+    mutationFn: async (id: string) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
       const { error } = await supabase
         .from("alertes")
-        .update({ assignee_id })
+        .update({ assignee_id: user.id })
         .eq("id", id);
       if (error) throw error;
     },
@@ -164,7 +170,7 @@ export function useCloseAlert() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from("alertes")
-        .update({ statut: "resolue" as const, resolue_at: new Date().toISOString() })
+        .update({ statut: "resolu" as const, resolue_at: new Date().toISOString() })
         .eq("id", id);
       if (error) throw error;
     },

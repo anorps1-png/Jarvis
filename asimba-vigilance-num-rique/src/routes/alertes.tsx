@@ -30,6 +30,7 @@ import {
   PaginationContent,
   PaginationItem,
   PaginationLink,
+  PaginationEllipsis,
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
@@ -307,9 +308,7 @@ function AlertesPage() {
                   if (i === 2 && page > 4) {
                     return (
                       <PaginationItem key="ellipsis">
-                        <PaginationLink href="#" disabled>
-                          …
-                        </PaginationLink>
+                        <PaginationEllipsis />
                       </PaginationItem>
                     );
                   }
