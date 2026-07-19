@@ -38,8 +38,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { notifications as notifs } from "@/lib/mock-data";
 import { useCurrentUser, useSignOut, initialsFrom } from "@/lib/auth";
+import { useUnreadNotifications, useMarkNotificationRead, useIsAdmin, useIsStaff } from "@/lib/queries/staff";
 
 type NavItem = {
   label: string;
@@ -104,10 +104,15 @@ function BrandMark({ collapsed = false }: { collapsed?: boolean }) {
 
 function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isStaff = useIsStaff();
+
+  const nav = primaryNav.filter((section) =>
+    section.section !== "Administration" || isStaff
+  );
 
   return (
     <nav className="flex flex-1 flex-col gap-6 overflow-y-auto scrollbar-thin py-2">
-      {primaryNav.map((section) => (
+      {nav.map((section) => (
         <div key={section.section} className="flex flex-col gap-0.5">
           {!collapsed && (
             <div className="px-3 pb-1.5 text-[10.5px] font-semibold tracking-[0.14em] text-sidebar-muted uppercase">
@@ -243,7 +248,21 @@ function SidebarInner({
 }
 
 function NotificationsMenu() {
-  const unread = notifs.filter((n) => !n.lu).length;
+  const { data: unreadData } = useUnreadNotifications();
+  const { mutate: markRead } = useMarkNotificationRead();
+  const unread = unreadData?.length ?? 0;
+
+  const formatTime = (createdAt: string) => {
+    const now = new Date();
+    const then = new Date(createdAt);
+    const diff = now.getTime() - then.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    if (hours < 1) return "À l'instant";
+    if (hours < 24) return `Il y a ${hours}h`;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    return `Il y a ${days}j`;
+  };
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -262,30 +281,43 @@ function NotificationsMenu() {
       <PopoverContent align="end" className="w-[360px] p-0">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="text-sm font-semibold">Notifications</div>
-          <button className="text-xs text-primary hover:underline">Tout marquer comme lu</button>
+          {unread > 0 && (
+            <button className="text-xs text-primary hover:underline">
+              Tout marquer comme lu
+            </button>
+          )}
         </div>
         <div className="max-h-[380px] overflow-y-auto">
-          {notifs.map((n) => (
-            <div
-              key={n.id}
-              className={cn(
-                "flex gap-3 border-b border-border px-4 py-3 text-sm hover:bg-accent/60",
-                !n.lu && "bg-accent/30",
-              )}
-            >
-              <div
+          {unreadData && unreadData.length > 0 ? (
+            unreadData.map((n) => (
+              <button
+                key={n.id}
+                onClick={() => markRead(n.id)}
                 className={cn(
-                  "mt-1 h-2 w-2 shrink-0 rounded-full",
-                  n.type === "critique" ? "bg-destructive" : "bg-primary",
+                  "w-full text-left flex gap-3 border-b border-border px-4 py-3 text-sm hover:bg-accent/60 transition-colors",
+                  !n.lu && "bg-accent/30",
                 )}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">{n.titre}</div>
-                <div className="text-xs text-muted-foreground truncate">{n.corps}</div>
-                <div className="mt-1 text-[10.5px] text-muted-foreground/80">{n.horodatage}</div>
-              </div>
+              >
+                <div
+                  className={cn(
+                    "mt-1 h-2 w-2 shrink-0 rounded-full",
+                    n.type === "critique" ? "bg-destructive" : "bg-primary",
+                  )}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">{n.titre}</div>
+                  <div className="text-xs text-muted-foreground truncate">{n.corps}</div>
+                  <div className="mt-1 text-[10.5px] text-muted-foreground/80">
+                    {formatTime(n.created_at)}
+                  </div>
+                </div>
+              </button>
+            ))
+          ) : (
+            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+              Aucune notification
             </div>
-          ))}
+          )}
         </div>
         <div className="border-t border-border px-4 py-2 text-center">
           <Link to="/notifications" className="text-xs font-medium text-primary hover:underline">

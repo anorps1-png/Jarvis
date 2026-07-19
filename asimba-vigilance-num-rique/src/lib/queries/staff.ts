@@ -319,3 +319,35 @@ export function useUpdateFactCheck() {
     },
   });
 }
+
+// === ROLES ===
+export function useUserRoles() {
+  return useQuery({
+    queryKey: queryKeys.userRoles(undefined),
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useIsAdmin() {
+  const { data } = useUserRoles();
+  return data?.role === "admin";
+}
+
+export function useIsStaff() {
+  const { data } = useUserRoles();
+  return data?.role === "staff" || data?.role === "admin";
+}
