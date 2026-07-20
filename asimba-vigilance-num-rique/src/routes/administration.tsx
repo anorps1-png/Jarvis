@@ -164,13 +164,13 @@ function AdminPage() {
                   <Label className="text-[12.5px]">Seuil "Critique"</Label>
                   <div className="mt-2 flex items-center gap-3">
                     <Slider
-                      value={[iaConfig?.seuil_critique ?? 85]}
+                      value={[Math.round((iaConfig?.seuil_critique ?? 0.85) * 100)]}
                       max={100}
                       className="flex-1"
-                      onValueCommit={([v]) => updateIaConfig({ seuil_critique: v })}
+                      onValueCommit={([v]) => updateIaConfig({ seuil_critique: v / 100 })}
                     />
                     <span className="text-[13px] tabular-nums font-semibold w-10 text-right">
-                      {iaConfig?.seuil_critique ?? 85}
+                      {Math.round((iaConfig?.seuil_critique ?? 0.85) * 100)}
                     </span>
                   </div>
                 </div>
@@ -178,13 +178,13 @@ function AdminPage() {
                   <Label className="text-[12.5px]">Seuil "Élevé"</Label>
                   <div className="mt-2 flex items-center gap-3">
                     <Slider
-                      value={[iaConfig?.seuil_eleve ?? 65]}
+                      value={[Math.round((iaConfig?.seuil_eleve ?? 0.7) * 100)]}
                       max={100}
                       className="flex-1"
-                      onValueCommit={([v]) => updateIaConfig({ seuil_eleve: v })}
+                      onValueCommit={([v]) => updateIaConfig({ seuil_eleve: v / 100 })}
                     />
                     <span className="text-[13px] tabular-nums font-semibold w-10 text-right">
-                      {iaConfig?.seuil_eleve ?? 65}
+                      {Math.round((iaConfig?.seuil_eleve ?? 0.7) * 100)}
                     </span>
                   </div>
                 </div>

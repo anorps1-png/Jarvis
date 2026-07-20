@@ -136,6 +136,8 @@ export function useCategories() {
 }
 
 // === IA CONFIG ===
+// Table singleton (id=1) : aucune migration ne garantit la présence de la ligne,
+// maybeSingle() évite un crash tant qu'elle n'a pas été créée (voir seed.sql).
 export function useIaConfig() {
   return useQuery({
     queryKey: queryKeys.iaConfig(),
@@ -144,7 +146,7 @@ export function useIaConfig() {
         .from("ia_config")
         .select("*")
         .eq("id", 1)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -152,6 +154,8 @@ export function useIaConfig() {
   });
 }
 
+// Pas de policy INSERT sur ia_config (update admin uniquement) : la ligne id=1
+// doit exister au préalable (voir seed.sql / migration dédiée), sinon 0 ligne affectée.
 export function useUpdateIaConfig() {
   const queryClient = useQueryClient();
   return useMutation({
