@@ -242,10 +242,12 @@ const analyzeTextWithIaFn = createServerFn({ method: "POST" })
     return text;
   })
   .handler(async ({ data: text }) => {
-    const sublyxKey = process.env.SUBLYX_API_KEY || process.env.VITE_SUBLYX_API_KEY;
+    const openaiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || process.env.SUBLYX_API_KEY || process.env.VITE_SUBLYX_API_KEY;
+    const openaiBaseUrl = process.env.OPENAI_BASE_URL || process.env.VITE_OPENAI_BASE_URL || "https://api.sublyx.org/v1";
+    const openaiModel = process.env.OPENAI_MODEL || process.env.VITE_OPENAI_MODEL || "gpt-4o-mini";
     const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
-    if (!sublyxKey && !geminiKey) {
+    if (!openaiKey && !geminiKey) {
       return { success: false, error: "Clé API non configurée." };
     }
 
@@ -268,35 +270,35 @@ Notes pour l'analyse :
 - Si l'information est fausse ou trompeuse, le verdict doit être "faux" ou "trompeur", le score doit représenter le niveau de désinformation/risque, et la catégorie doit être "Désinformation", "Incitation à la violence" ou "Escroquerie / Phishing".
 `;
 
-    // 1. Call via Sublyx API if configured (OpenAI format)
-    if (sublyxKey) {
+    // 1. Call via OpenAI-compatible API if configured (e.g. Sublyx)
+    if (openaiKey) {
       try {
-        const response = await fetch("https://api.sublyx.org/v1/chat/completions", {
+        const response = await fetch(`${openaiBaseUrl.replace(/\/$/, "")}/chat/completions`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${sublyxKey}`
+            "Authorization": `Bearer ${openaiKey}`
           },
           body: JSON.stringify({
-            model: "gpt-4o-mini",
+            model: openaiModel,
             messages: [{ role: "user", content: promptText }],
             response_format: { type: "json_object" }
           }),
         });
 
         if (!response.ok) {
-          throw new Error(`Erreur API Sublyx : ${response.statusText}`);
+          throw new Error(`Erreur API OpenAI-compatible : ${response.statusText}`);
         }
 
         const resData = await response.json();
         const rawText = resData.choices?.[0]?.message?.content;
-        if (!rawText) throw new Error("Réponse Sublyx vide.");
+        if (!rawText) throw new Error("Réponse OpenAI vide.");
         
         const parsed = JSON.parse(rawText.trim());
         return { success: true, data: parsed };
       } catch (err: unknown) {
-        console.error("[Sublyx AI Error]", err);
-        return { success: false, error: "Erreur lors de l'analyse via Sublyx." };
+        console.error("[OpenAI-compatible AI Error]", err);
+        return { success: false, error: "Erreur lors de l'analyse via l'API OpenAI." };
       }
     }
 
@@ -343,7 +345,7 @@ Notes pour l'analyse :
     }
   });
 
-// Server-side simulated comments generator using Gemini or Sublyx
+// Server-side simulated comments generator using Gemini or OpenAI-compatible proxy
 const generateSimulatedCommentsFn = createServerFn({ method: "POST" })
   .validator((input: { target: string; platform: string }) => {
     if (typeof input.target !== "string" || typeof input.platform !== "string") {
@@ -352,10 +354,12 @@ const generateSimulatedCommentsFn = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data: { target, platform } }) => {
-    const sublyxKey = process.env.SUBLYX_API_KEY || process.env.VITE_SUBLYX_API_KEY;
+    const openaiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || process.env.SUBLYX_API_KEY || process.env.VITE_SUBLYX_API_KEY;
+    const openaiBaseUrl = process.env.OPENAI_BASE_URL || process.env.VITE_OPENAI_BASE_URL || "https://api.sublyx.org/v1";
+    const openaiModel = process.env.OPENAI_MODEL || process.env.VITE_OPENAI_MODEL || "gpt-4o-mini";
     const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
-    if (!sublyxKey && !geminiKey) {
+    if (!openaiKey && !geminiKey) {
       return { success: false, error: "Clé API non configurée." };
     }
 
@@ -384,35 +388,35 @@ Format attendu :
   }
 ]`;
 
-    // 1. Call via Sublyx API if configured (OpenAI format)
-    if (sublyxKey) {
+    // 1. Call via OpenAI-compatible API if configured (e.g. Sublyx)
+    if (openaiKey) {
       try {
-        const response = await fetch("https://api.sublyx.org/v1/chat/completions", {
+        const response = await fetch(`${openaiBaseUrl.replace(/\/$/, "")}/chat/completions`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${sublyxKey}`
+            "Authorization": `Bearer ${openaiKey}`
           },
           body: JSON.stringify({
-            model: "gpt-4o-mini",
+            model: openaiModel,
             messages: [{ role: "user", content: promptText }],
             response_format: { type: "json_object" }
           }),
         });
 
         if (!response.ok) {
-          throw new Error(`Erreur API Sublyx : ${response.statusText}`);
+          throw new Error(`Erreur API OpenAI-compatible : ${response.statusText}`);
         }
 
         const resData = await response.json();
         const rawText = resData.choices?.[0]?.message?.content;
-        if (!rawText) throw new Error("Réponse Sublyx vide.");
+        if (!rawText) throw new Error("Réponse OpenAI vide.");
         
         const parsed = JSON.parse(rawText.trim());
         return { success: true, comments: parsed };
       } catch (err: unknown) {
-        console.error("[Sublyx Simulation Error]", err);
-        return { success: false, error: "Erreur de génération via Sublyx." };
+        console.error("[OpenAI-compatible Simulation Error]", err);
+        return { success: false, error: "Erreur de génération via l'API OpenAI." };
       }
     }
 
@@ -779,7 +783,9 @@ function AnalyseIAPage() {
       import.meta.env.VITE_GEMINI_API_KEY || 
       process.env.VITE_GEMINI_API_KEY ||
       import.meta.env.VITE_SUBLYX_API_KEY || 
-      process.env.VITE_SUBLYX_API_KEY
+      process.env.VITE_SUBLYX_API_KEY ||
+      import.meta.env.VITE_OPENAI_API_KEY || 
+      process.env.VITE_OPENAI_API_KEY
     );
     const isUrl = targetUrl.trim().startsWith("http");
 
@@ -912,7 +918,7 @@ function AnalyseIAPage() {
         toast.success("Analyse par l'IA réelle Gemini complétée !");
       } else {
         evaluatedComments = [evaluateText(cleanText, 0)];
-        toast.info("Analyse hors-ligne effectuée (Clé VITE_SUBLYX_API_KEY ou VITE_GEMINI_API_KEY absente).");
+        toast.info("Analyse hors-ligne effectuée (Clé d'API absente ou non configurée).");
       }
     } else {
       // Dynamic Simulation with Gemini if key is present
