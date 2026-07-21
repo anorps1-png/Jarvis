@@ -236,7 +236,7 @@ const scrapeUrlFn = createServerFn({ method: "GET" })
   });
 
 // Server-side AI text analyzer
-const analyzeTextWithIaFn = createServerFn({ method: "POST" })
+export const analyzeTextWithIaFn = createServerFn({ method: "POST" })
   .validator((text: string) => {
     if (typeof text !== "string") throw new Error("Texte invalide.");
     return text;

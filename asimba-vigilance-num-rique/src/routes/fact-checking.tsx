@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
@@ -6,17 +6,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { analyzeTextWithIaFn } from "./analyse-ia";
+import { toast } from "sonner";
 import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
   Search,
   ExternalLink,
-  Eye,
-  EyeOff,
+  Loader2,
   type LucideIcon,
 } from "lucide-react";
-import { useFactChecks, useUpdateFactCheck } from "@/lib/queries/staff";
+import { useFactChecks } from "@/lib/queries/staff";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -67,9 +70,9 @@ function StatusBadge({ verdict }: { verdict: FactCheck["verdict"] }) {
 
 function FactPage() {
   const { data: factChecks, isLoading } = useFactChecks({ publie: true });
-  const { mutate: togglePublish } = useUpdateFactCheck();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
-  const navigate = useNavigate();
+  const [isChecking, setIsChecking] = useState(false);
 
   const filtered = useMemo(() => {
     if (!factChecks) return [];
@@ -80,6 +83,55 @@ function FactPage() {
         (f.titre?.toLowerCase() || "").includes(lower),
     );
   }, [factChecks, searchTerm]);
+
+  async function handleVerify() {
+    if (!searchTerm.trim()) {
+      toast.error("Veuillez saisir une affirmation à fact-checker.");
+      return;
+    }
+    setIsChecking(true);
+    toast.info("Analyse en cours par l'IA...", { description: "Veuillez patienter pendant l'évaluation." });
+
+    try {
+      const res = await analyzeTextWithIaFn({ data: searchTerm.trim() });
+      if (res && res.success && res.data) {
+        const aiData = res.data;
+
+        // Insert into Supabase fact_checks table directly
+        const { error } = await supabase
+          .from("fact_checks")
+          .insert({
+            affirmation: searchTerm.trim(),
+            titre: aiData.category || "Vérification automatisée",
+            verdict: (aiData.verdict || "trompeur") as "vrai" | "faux" | "trompeur",
+            justification: aiData.conclusion,
+            confiance: aiData.score,
+            sources: aiData.sources || ["ASIMBA AI"],
+            publie: true,
+            publie_at: new Date().toISOString(),
+          });
+
+        if (error) {
+          throw error;
+        }
+
+        toast.success("Fact-checking terminé !", {
+          description: `Verdict : ${aiData.verdict.toUpperCase()} (Indice : ${aiData.score}%)`,
+        });
+        setSearchTerm("");
+        queryClient.invalidateQueries({ queryKey: ["fact_checks"] });
+      } else {
+        throw new Error(res?.error || "Une erreur inconnue s'est produite lors de l'analyse.");
+      }
+    } catch (err: any) {
+      console.error("[Fact-checking Error]", err);
+      toast.error("Erreur de fact-checking", {
+        description: err.message || "Impossible de joindre le serveur d'analyse.",
+      });
+    } finally {
+      setIsChecking(false);
+    }
+  }
 
   return (
     <AppLayout title="Fact-checking" subtitle="Vérifications publiques">
@@ -95,18 +147,17 @@ function FactPage() {
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Rechercher une affirmation, une rumeur…"
+                placeholder="Rechercher ou saisir une affirmation à fact-checker..."
                 className="h-10 pl-8"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                disabled={isChecking}
               />
             </div>
-            <Button className="h-10" onClick={() => {
-              navigate({
-                to: "/analyse-ia",
-                search: searchTerm ? { target: searchTerm } : undefined
-              });
-            }}>Vérifier</Button>
+            <Button className="h-10" onClick={handleVerify} disabled={isChecking}>
+              {isChecking && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+              {isChecking ? "Vérification..." : "Vérifier"}
+            </Button>
           </div>
         </Card>
 
@@ -141,6 +192,11 @@ function FactPage() {
                   )}
                   {f.titre && (
                     <div className="text-[12.5px] font-semibold">{f.titre}</div>
+                  )}
+                  {f.justification && (
+                    <p className="text-[12.5px] text-muted-foreground leading-relaxed">
+                      {f.justification}
+                    </p>
                   )}
                   <div className="mt-auto">
                     {Array.isArray(f.sources) && f.sources.length > 0 && (
