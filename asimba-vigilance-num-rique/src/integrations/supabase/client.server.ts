@@ -37,11 +37,9 @@ function createSupabaseAdminClient() {
   let SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    console.warn(
-      `[Supabase Admin] Missing environment variables. Falling back to simulated local mode.`,
-    );
-    SUPABASE_URL = "https://opmmqwpdvrcmlkwhqwiy.supabase.co";
-    SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy.key";
+    SUPABASE_URL = "https://fnopojzqbpicldxemhho.supabase.co";
+    SUPABASE_SERVICE_ROLE_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZub3BvanpxYnBpY2xkeGVtaGhvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDAxOTQxNywiZXhwIjoyMDk5NTk1NDE3fQ.v-SCG-qkvHzpj3_kDRMX_nBKF98UDMhRu3ZZfhTw6Ao";
   }
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
