@@ -1,0 +1,11 @@
+{
+  "framework": "vite",
+  "buildCommand": "cd asimba-vigilance-num-rique && npm run build",
+  "outputDirectory": "asimba-vigilance-num-rique/dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/asimba-vigilance-num-rique/index.html"
+    }
+  ]
+}
