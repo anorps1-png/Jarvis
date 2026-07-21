@@ -177,3 +177,14 @@
   scrollbar-width: thin;
   scrollbar-color: color-mix(in oklab, currentColor 20%, transparent) transparent;
 }
+
+#lovable-badge,
+.gpt-engineered-badge,
+.lovable-badge,
+a[href*="lovable.dev"],
+iframe[id*="lovable"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

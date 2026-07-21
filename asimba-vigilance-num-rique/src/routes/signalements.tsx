@@ -94,120 +94,6 @@ function SignalementsPage() {
   async function submitSignalement() {
     setSubmitting(true);
 
-    const hasSupabase = !!(
-      import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-    );
-
-    if (!hasSupabase) {
-      // Simulate network delay
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-
-      const ref = `S-2026-${Math.floor(100000 + Math.random() * 900000)}`;
-
-      const mappedCategoryMap: Record<string, string> = {
-        violence: "Incitation à la violence",
-        desinformation: "Désinformation",
-        harcelement: "Harcèlement",
-        escroquerie: "Escroquerie",
-        enfance: "Protection de l'enfance",
-        haine: "Discours de haine",
-      };
-
-      const categoryLabel = mappedCategoryMap[categorie] || "Autres";
-
-      // AI predictive classification simulation (Cameroonian context)
-      let computedScore = 62;
-      let computedSeverity: "critique" | "eleve" | "moyen" | "faible" = "moyen";
-      const descLower = description.toLowerCase();
-
-      if (
-        descLower.includes("tuer") ||
-        descLower.includes("arme") ||
-        descLower.includes("attaquer") ||
-        descLower.includes("vengeance") ||
-        descLower.includes("gourdin")
-      ) {
-        computedScore = 92;
-        computedSeverity = "critique";
-      } else if (
-        descLower.includes("sexe") ||
-        descLower.includes("viol") ||
-        descLower.includes("mineur") ||
-        descLower.includes("enfant")
-      ) {
-        computedScore = 97;
-        computedSeverity = "critique";
-      } else if (
-        descLower.includes("argent") ||
-        descLower.includes("gagner") ||
-        descLower.includes("mtn") ||
-        descLower.includes("orange") ||
-        descLower.includes("loterie") ||
-        descLower.includes("arnaque")
-      ) {
-        computedScore = 78;
-        computedSeverity = "eleve";
-      } else if (
-        descLower.includes("rumeur") ||
-        descLower.includes("annulé") ||
-        descLower.includes("coupure")
-      ) {
-        computedScore = 65;
-        computedSeverity = "moyen";
-      }
-
-      // Generate keywords from description
-      const words = description
-        .split(/\s+/)
-        .map((w) => w.replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, ""))
-        .filter((w) => w.length > 4)
-        .slice(0, 5);
-
-      const newAlert: Alert = {
-        id: `alert-${alerts.length + 1}`,
-        reference: `#A-2026-${Math.floor(100000 + Math.random() * 900000)}`,
-        titre: description.slice(0, 50) + (description.length > 50 ? "..." : ""),
-        extrait: description,
-        categorie: categoryLabel as Category,
-        severite: computedSeverity,
-        score: computedScore,
-        confiance: 90,
-        statut: "nouveau",
-        source: type === "lien" ? "Facebook" : "WhatsApp",
-        langue:
-          descLower.includes("wuna") || descLower.includes("hear") || descLower.includes("don")
-            ? "Pidgin"
-            : descLower.includes("ndem") ||
-                descLower.includes("ndjoka") ||
-                descLower.includes("mouf")
-              ? "Camfranglais"
-              : "Français",
-        ville,
-        region,
-        detecte: new Date().toISOString(),
-        motsCles: words.length > 0 ? words : ["signalement", "citoyen"],
-        propagation: computedSeverity === "critique" ? "très rapide" : "modérée",
-        resume: description,
-        recommandation:
-          "Analyse citoyenne confirmée. Transmission recommandée aux autorités compétentes.",
-      };
-
-      // Add to global mutable mock array
-      alerts.unshift(newAlert);
-
-      setSubmitting(false);
-      toast.success("Signalement envoyé (Mode Simulation)", {
-        description: `Référence : #${ref} · Analysé avec succès par ASIMBA-AI`,
-      });
-      setStep(1);
-      setUrl("");
-      setDescription("");
-      setCategorie("");
-      setGps("");
-      return;
-    }
-
-    // Normal Supabase flow
     const contenu = url.trim() || description.trim();
     if (!contenu) {
       setSubmitting(false);
@@ -244,16 +130,40 @@ function SignalementsPage() {
       preuves:
         preuves as unknown as Database["public"]["Tables"]["signalements"]["Insert"]["preuves"],
     };
+
     const { data, error } = await supabase
       .from("signalements")
       .insert(payload)
-      .select("reference")
+      .select("id, reference")
       .single();
-    setSubmitting(false);
+
     if (error) {
+      setSubmitting(false);
       toast.error("Envoi impossible", { description: error.message });
       return;
     }
+
+    // Now insert a corresponding alerte in the database so administrators and authorities see it
+    const alertePayload = {
+      signalement_id: signalementId,
+      titre: description?.slice(0, 50) || contenu.slice(0, 50),
+      resume: description || contenu,
+      severite: "moyenne" as const, 
+      statut: "nouveau" as const,
+      categorie: payload.categorie,
+      mots_cles: ["signalement", "citoyen"],
+      recommandation: "Alerte reçue par le portail citoyen. Analyse requise.",
+    };
+
+    const { error: alerteError } = await supabase
+      .from("alertes")
+      .insert(alertePayload);
+
+    setSubmitting(false);
+    if (alerteError) {
+      console.error("[Alerte Creation Error]", alerteError);
+    }
+
     toast.success("Signalement envoyé", { description: `Référence : #${data.reference}` });
     setStep(1);
     setUrl("");

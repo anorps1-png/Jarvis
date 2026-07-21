@@ -779,14 +779,7 @@ function AnalyseIAPage() {
     setScannedComments([]);
     setFactcheckedIds({});
 
-    const hasKey = !!(
-      import.meta.env.VITE_GEMINI_API_KEY || 
-      process.env.VITE_GEMINI_API_KEY ||
-      import.meta.env.VITE_SUBLYX_API_KEY || 
-      process.env.VITE_SUBLYX_API_KEY ||
-      import.meta.env.VITE_OPENAI_API_KEY || 
-      process.env.VITE_OPENAI_API_KEY
-    );
+    const hasKey = true; // Toujours tenter l'analyse IA via le serveur
     const isUrl = targetUrl.trim().startsWith("http");
 
     // 1. Live Scraping Flow (if target is a URL)
@@ -812,15 +805,15 @@ function AnalyseIAPage() {
         let analyzed: ScannedComment[] = [];
 
         if (hasKey) {
-          setScanStepMsg("Analyse par l'IA réelle Gemini des extraits...");
+          setScanStepMsg("Analyse par l'IA des extraits...");
           const promises = result.comments.map(async (text, idx) => {
             if (idx < 2) { // Limit real AI to first 2 blocks to avoid rate limits
               const res = await analyzeTextWithIaFn({ data: text });
               if (res && res.success && res.data) {
                 const aiData = res.data;
                 return {
-                  author: `Extrait #${idx + 1} (IA)`,
-                  handle: "@gemini_flash",
+                  author: `Extrait #${idx + 1}`,
+                  handle: "@veille_citoyenne",
                   text,
                   lang: text.toLowerCase().includes("wuna") || text.toLowerCase().includes("dey") ? "Pidgin" as const : "Français" as const,
                   score: aiData.score ?? 50,
@@ -868,7 +861,7 @@ function AnalyseIAPage() {
         setScanning(false);
         const message = err instanceof Error ? err.message : String(err);
         toast.error("Erreur de scraping", {
-          description: `Impossible de scraper la cible : ${message}. Configurez VITE_GEMINI_API_KEY pour activer les simulations IA autonomes.`,
+          description: `Impossible de scraper la cible : ${message}. Configurez OPENAI_API_KEY dans votre fichier .env pour activer les simulations IA autonomes.`,
         });
         return;
       }
@@ -894,7 +887,7 @@ function AnalyseIAPage() {
     const isCustomText = targetUrl.trim().includes(" ") && !targetUrl.trim().startsWith("http");
 
     if (isCustomText) {
-      setScanStepMsg("Analyse par l'IA réelle Gemini...");
+      setScanStepMsg("Analyse par l'IA...");
       const cleanText = targetUrl.trim();
       const aiResult = await analyzeTextWithIaFn({ data: cleanText });
 
@@ -902,8 +895,8 @@ function AnalyseIAPage() {
         const aiData = aiResult.data;
         evaluatedComments = [
           {
-            author: "Analyse IA Réelle",
-            handle: "@gemini_flash",
+            author: "Rapport d'Analyse",
+            handle: "@analyse_asimba",
             text: cleanText,
             lang: cleanText.toLowerCase().includes("wuna") || cleanText.toLowerCase().includes("dey") ? "Pidgin" as const : "Français" as const,
             score: aiData.score ?? 50,
@@ -915,7 +908,7 @@ function AnalyseIAPage() {
             region: "Centre",
           }
         ];
-        toast.success("Analyse par l'IA réelle Gemini complétée !");
+        toast.success("Analyse par l'IA complétée !");
       } else {
         evaluatedComments = [evaluateText(cleanText, 0)];
         toast.info("Analyse hors-ligne effectuée (Clé d'API absente ou non configurée).");

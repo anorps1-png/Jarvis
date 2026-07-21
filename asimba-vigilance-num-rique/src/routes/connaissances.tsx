@@ -171,21 +171,27 @@ function KnowledgePage() {
                   {selectedArticle.resume}
                 </DialogDescription>
               </DialogHeader>
-              <div className="mt-4 space-y-4 text-[13px] leading-relaxed text-foreground">
-                <p>
-                  <strong>Introduction</strong> — À l'ère numérique actuelle, la diffusion rapide d'informations peut avoir des conséquences opérationnelles significatives au Cameroun. Cet article a pour but de fournir les connaissances de base et les procédures clés pour appréhender le sujet traité.
-                </p>
-                <p>
-                  <strong>Analyse détaillée</strong> — Pour approfondir la thématique, les experts préconisent d'examiner attentivement les sources, de vérifier la cohérence temporelle des données partagées et de recouper les faits avec des communiqués de presse officiels d'institutions comme l'ANTIC ou le MINCOM.
-                </p>
-                <p>
-                  <strong>Recommandations pratiques</strong> :
-                  <ul className="list-disc pl-5 mt-2 space-y-1.5">
-                    <li>Toujours vérifier l'URL d'origine avant de partager une information d'apparence institutionnelle.</li>
-                    <li>Signaler immédiatement tout contenu incitant à la haine ou à la violence via le formulaire de signalement ASIMBA.</li>
-                    <li>Sensibiliser vos équipes ou vos proches aux techniques courantes de manipulation sémantique.</li>
-                  </ul>
-                </p>
+              <div className="mt-4 space-y-4 text-[13.5px] leading-relaxed text-foreground whitespace-pre-line">
+                {selectedArticle.contenu ? (
+                  selectedArticle.contenu
+                ) : (
+                  <>
+                    <p>
+                      <strong>Introduction</strong> — À l'ère numérique actuelle, la diffusion rapide d'informations peut avoir des conséquences opérationnelles significatives au Cameroun. Cet article a pour but de fournir les connaissances de base et les procédures clés pour appréhender le sujet traité.
+                    </p>
+                    <p>
+                      <strong>Analyse détaillée</strong> — Pour approfondir la thématique, les experts préconisent d'examiner attentivement les sources, de vérifier la cohérence temporelle des données partagées et de recouper les faits avec des communiqués de presse officiels d'institutions comme l'ANTIC ou le MINCOM.
+                    </p>
+                    <p>
+                      <strong>Recommandations pratiques</strong> :
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1.5 font-normal">
+                      <li>Toujours vérifier l'URL d'origine avant de partager une information d'apparence institutionnelle.</li>
+                      <li>Signaler immédiatement tout contenu incitant à la haine ou à la violence via le formulaire de signalement ASIMBA.</li>
+                      <li>Sensibiliser vos équipes ou vos proches aux techniques courantes de manipulation sémantique.</li>
+                    </ul>
+                  </>
+                )}
               </div>
               <DialogFooter className="mt-6 border-t border-border pt-3">
                 <Button onClick={() => setSelectedArticle(null)}>Fermer</Button>

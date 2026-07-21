@@ -25,6 +25,8 @@ function LoginPage() {
   const [show, setShow] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [isRegister, setIsRegister] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const { redirect } = Route.useSearch();
@@ -36,16 +38,36 @@ function LoginPage() {
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setSubmitting(false);
-    if (error) {
-      toast.error("Connexion impossible", { description: "Email ou mot de passe incorrect." });
-      return;
+    if (isRegister) {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName || email.split("@")[0],
+          },
+        },
+      });
+      setSubmitting(false);
+      if (error) {
+        toast.error("Inscription impossible", { description: error.message });
+        return;
+      }
+      toast.success("Compte créé avec succès !", {
+        description: "Veuillez vérifier vos e-mails pour valider votre compte ou connectez-vous.",
+      });
+      setIsRegister(false);
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      setSubmitting(false);
+      if (error) {
+        toast.error("Connexion impossible", { description: "Email ou mot de passe incorrect." });
+        return;
+      }
+      toast.success("Connexion réussie");
+      const target = redirect && redirect.startsWith("/") ? redirect : "/";
+      navigate({ to: target });
     }
-    toast.success("Connexion réussie");
-    // On évite les redirections vers un domaine externe (open redirect).
-    const target = redirect && redirect.startsWith("/") ? redirect : "/";
-    navigate({ to: target });
   }
 
   return (
@@ -116,14 +138,28 @@ function LoginPage() {
               Accès sécurisé
             </div>
             <h2 className="mt-1.5 text-[26px] font-semibold tracking-tight">
-              Connexion à votre compte
+              {isRegister ? "Créer un compte" : "Connexion à votre compte"}
             </h2>
             <p className="mt-1.5 text-[13px] text-muted-foreground">
-              Bienvenue. Renseignez vos identifiants pour accéder à la plateforme.
+              {isRegister
+                ? "Inscrivez-vous pour rejoindre la plateforme ASIMBA."
+                : "Bienvenue. Renseignez vos identifiants pour accéder à la plateforme."}
             </p>
           </div>
 
           <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
+            {isRegister && (
+              <div>
+                <Label className="text-[12.5px] mb-1.5 block">Nom complet</Label>
+                <Input
+                  type="text"
+                  placeholder="Jean Eboa"
+                  className="h-11"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
+            )}
             <div>
               <Label className="text-[12.5px] mb-1.5 block">Email professionnel</Label>
               <Input
@@ -138,14 +174,16 @@ function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <Label className="text-[12.5px]">Mot de passe</Label>
-                <a href="#" className="text-[11.5px] font-medium text-primary hover:underline">
-                  Mot de passe oublié ?
-                </a>
+                {!isRegister && (
+                  <a href="#" className="text-[11.5px] font-medium text-primary hover:underline">
+                    Mot de passe oublié ?
+                  </a>
+                )}
               </div>
               <div className="relative">
                 <Input
                   type={show ? "text" : "password"}
-                  autoComplete="current-password"
+                  autoComplete={isRegister ? "new-password" : "current-password"}
                   placeholder="Votre mot de passe"
                   className="h-11 pr-10"
                   value={password}
@@ -161,42 +199,75 @@ function LoginPage() {
                 </button>
               </div>
             </div>
-            <div className="flex items-center justify-between text-[12.5px]">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Checkbox defaultChecked /> Rester connecté sur cet appareil
-              </label>
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                <Lock className="h-3 w-3" /> Session chiffrée
-              </span>
-            </div>
+            {!isRegister && (
+              <div className="flex items-center justify-between text-[12.5px]">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox defaultChecked /> Rester connecté sur cet appareil
+                </label>
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <Lock className="h-3 w-3" /> Session chiffrée
+                </span>
+              </div>
+            )}
             <Button type="submit" disabled={submitting} className="w-full h-11 text-[13px]">
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {submitting ? "Connexion…" : "Se connecter"}
+              {isRegister
+                ? submitting
+                  ? "Inscription…"
+                  : "Créer mon compte"
+                : submitting
+                  ? "Connexion…"
+                  : "Se connecter"}
             </Button>
-            <div className="relative py-1">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-[11px]">
-                <span className="bg-background px-2 text-muted-foreground">ou</span>
-              </div>
-            </div>
-            <Button variant="outline" className="w-full h-11 gap-2 text-[13px]">
-              <ShieldCheck className="h-4 w-4 text-primary" /> Se connecter via SSO institutionnel
-            </Button>
+            {!isRegister && (
+              <>
+                <div className="relative py-1">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-[11px]">
+                    <span className="bg-background px-2 text-muted-foreground">ou</span>
+                  </div>
+                </div>
+                <Button variant="outline" className="w-full h-11 gap-2 text-[13px]">
+                  <ShieldCheck className="h-4 w-4 text-primary" /> Se connecter via SSO institutionnel
+                </Button>
+              </>
+            )}
           </form>
 
-          <div className="mt-6 rounded-lg border border-border bg-muted/40 p-3 text-[11.5px] text-muted-foreground flex gap-2">
-            <Sparkles className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-            Votre compte est protégé par l'authentification à deux facteurs. Un code vous sera
-            demandé après validation.
-          </div>
+          {!isRegister && (
+            <div className="mt-6 rounded-lg border border-border bg-muted/40 p-3 text-[11.5px] text-muted-foreground flex gap-2">
+              <Sparkles className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+              Votre compte est protégé par l'authentification à deux facteurs. Un code vous sera
+              demandé après validation.
+            </div>
+          )}
 
           <div className="mt-8 text-center text-[12px] text-muted-foreground">
-            Pas encore de compte ?{" "}
-            <a href="#" className="font-medium text-primary hover:underline">
-              Demander un accès institutionnel
-            </a>
+            {isRegister ? (
+              <>
+                Déjà un compte ?{" "}
+                <button
+                  type="button"
+                  onClick={() => setIsRegister(false)}
+                  className="font-medium text-primary hover:underline"
+                >
+                  Se connecter
+                </button>
+              </>
+            ) : (
+              <>
+                Pas encore de compte ?{" "}
+                <button
+                  type="button"
+                  onClick={() => setIsRegister(true)}
+                  className="font-medium text-primary hover:underline"
+                >
+                  Créer un compte
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

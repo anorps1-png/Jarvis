@@ -264,6 +264,36 @@ function CartePage() {
                     );
                   })}
 
+                  {/* Individual Alert Markers from Database */}
+                  {mapMode === "markers" && alerts.map((alert) => {
+                    if (!alert.ville || !alert.id) return null;
+                    const cleanCityName = alert.ville.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                    const cityEntry = Object.entries(villes).find(([name]) => 
+                      name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() === cleanCityName
+                    );
+                    if (!cityEntry) return null;
+                    const city = cityEntry[1];
+                    // seed a deterministic jitter based on string id hashing to keep rendering stable
+                    const hash = alert.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                    const jitterLat = ((hash % 10) - 5) * 0.03;
+                    const jitterLng = (((hash >> 2) % 10) - 5) * 0.03;
+                    const { x, y } = project(city.lat + jitterLat, city.lng + jitterLng);
+                    const isCrit = alert.severite === "critique" || alert.severite === "elevee";
+                    return (
+                      <g key={alert.id + "i"} className="cursor-pointer group">
+                        <circle
+                          cx={x}
+                          cy={y}
+                          r={4}
+                          fill={isCrit ? "var(--color-destructive)" : "var(--color-info)"}
+                          stroke="white"
+                          strokeWidth="1"
+                        />
+                        <title>{`${alert.titre || "Alerte"} (${alert.ville})`}</title>
+                      </g>
+                    );
+                  })}
+
                   {/* Clusters */}
                   {mapMode === "clusters" && stats.map((region) => {
                     const city = Object.values(villes).find((v) => v.region === region.region);
