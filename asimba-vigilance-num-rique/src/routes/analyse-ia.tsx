@@ -311,6 +311,17 @@ export const analyzeTextWithIaFn = createServerFn({ method: "POST" })
       "https://api.sublyx.org/v1";
     const openaiModel =
       process.env.OPENAI_MODEL || process.env.VITE_OPENAI_MODEL || "gpt-4o-mini";
+
+    const deepseekKey =
+      process.env.DEEPSEEK_API_KEY ||
+      process.env.VITE_DEEPSEEK_API_KEY;
+    const deepseekBaseUrl =
+      process.env.DEEPSEEK_BASE_URL ||
+      process.env.VITE_DEEPSEEK_BASE_URL ||
+      "https://api.deepseek.com/v1";
+    const deepseekModel =
+      process.env.DEEPSEEK_MODEL || process.env.VITE_DEEPSEEK_MODEL || "deepseek-chat";
+
     const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
     const promptText = `Tu es un expert anti-désinformation pour la plateforme ASIMBA du Cameroun. Analyse l'affirmation suivante extraite d'une source publique (médias, réseaux sociaux) :
@@ -332,7 +343,7 @@ Notes pour l'analyse :
 - Si l'information est fausse ou trompeuse, le verdict doit être "faux" ou "trompeur", le score doit représenter le niveau de désinformation/risque, et la catégorie doit être "Désinformation", "Incitation à la violence" ou "Escroquerie / Phishing".
 `;
 
-    // 1. Essai via l'API OpenAI / Sublyx si disponible
+    // 1. Niveau 1 : API OpenAI / Sublyx si disponible
     if (openaiKey) {
       try {
         const response = await fetch(`${openaiBaseUrl.replace(/\/$/, "")}/chat/completions`, {
@@ -356,14 +367,46 @@ Notes pour l'analyse :
             return { success: true, data: parsed };
           }
         } else {
-          console.warn(`[Sublyx AI status ${response.status}] Repli vers le moteur secondaire.`);
+          console.warn(`[Sublyx AI status ${response.status}] Repli vers le niveau 2 (DeepSeek).`);
         }
       } catch (err: unknown) {
         console.warn("[OpenAI-compatible AI Error]", err);
       }
     }
 
-    // 2. Repli via l'API Gemini si configurée
+    // 2. Niveau 2 : API DeepSeek (https://api.deepseek.com)
+    if (deepseekKey) {
+      try {
+        const response = await fetch(`${deepseekBaseUrl.replace(/\/$/, "")}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${deepseekKey}`,
+          },
+          body: JSON.stringify({
+            model: deepseekModel,
+            messages: [{ role: "user", content: promptText }],
+            response_format: { type: "json_object" },
+          }),
+        });
+
+        if (response.ok) {
+          const resData = await response.json();
+          const rawText = resData.choices?.[0]?.message?.content;
+          if (rawText) {
+            const cleaned = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+            const parsed = JSON.parse(cleaned);
+            return { success: true, data: parsed };
+          }
+        } else {
+          console.warn(`[DeepSeek AI status ${response.status}] Repli vers le niveau 3.`);
+        }
+      } catch (err: unknown) {
+        console.warn("[DeepSeek AI Error]", err);
+      }
+    }
+
+    // 3. Niveau 3 : API Gemini si configurée
     if (geminiKey) {
       try {
         const response = await fetch(
@@ -391,7 +434,7 @@ Notes pour l'analyse :
       }
     }
 
-    // 3. Moteur heuristique ASIMBA (garantie de réponse même en cas de quota dépassé sur les API externes)
+    // 4. Moteur heuristique ASIMBA (garantie de réponse si toutes les API externes sont indisponibles)
     console.info("[ASIMBA Engine] Évaluation heuristique automatique.");
     const heuristicResult = analyzeWithHeuristics(text);
     return { success: true, data: heuristicResult };
