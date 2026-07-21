@@ -60,12 +60,12 @@ const primaryNav: { section: string; items: NavItem[] }[] = [
     ],
   },
   {
-    section: "Renseignement",
+    section: "Renseignement & Formation",
     items: [
       { label: "Carte des risques", to: "/carte", icon: MapIcon },
       { label: "Statistiques", to: "/statistiques", icon: BarChart3 },
       { label: "Fact-checking", to: "/fact-checking", icon: CheckCircle2 },
-      { label: "Base documentaire", to: "/connaissances", icon: BookOpen },
+      { label: "Formation", to: "/connaissances", icon: BookOpen },
     ],
   },
   {
@@ -104,11 +104,28 @@ function BrandMark({ collapsed = false }: { collapsed?: boolean }) {
 
 function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const isStaff = useIsStaff();
+  const isAdmin = useIsAdmin();
 
-  const nav = primaryNav.filter((section) =>
-    section.section !== "Administration" || isStaff
-  );
+  // Les comptes non-administrateurs ont accès UNIQUEMENT aux modules suivants :
+  // - Tableau de bord (/)
+  // - Signalement (/signalements)
+  // - Fact checking (/fact-checking)
+  // - Formation (/connaissances)
+  const ALLOWED_NON_ADMIN_PATHS = new Set([
+    "/",
+    "/signalements",
+    "/fact-checking",
+    "/connaissances",
+  ]);
+
+  const nav = primaryNav
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => isAdmin || ALLOWED_NON_ADMIN_PATHS.has(item.to),
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <nav className="flex flex-1 flex-col gap-6 overflow-y-auto scrollbar-thin py-2">
@@ -436,6 +453,18 @@ export function AppLayout({
   actions?: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isAdmin = useIsAdmin();
+
+  const ALLOWED_NON_ADMIN_PATHS = new Set([
+    "/",
+    "/signalements",
+    "/fact-checking",
+    "/connaissances",
+  ]);
+
+  // Si l'utilisateur n'est pas admin et tente d'accéder à un module réservé
+  const isAllowed = isAdmin || ALLOWED_NON_ADMIN_PATHS.has(pathname);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -444,7 +473,22 @@ export function AppLayout({
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar title={title} subtitle={subtitle} actions={actions} />
-        <main className="flex-1 min-w-0">{children}</main>
+        <main className="flex-1 min-w-0">
+          {isAllowed ? (
+            children
+          ) : (
+            <div className="flex flex-col items-center justify-center p-12 text-center space-y-4 min-h-[60vh]">
+              <ShieldAlert className="h-12 w-12 text-destructive" />
+              <h2 className="text-xl font-bold">Accès réservé aux administrateurs</h2>
+              <p className="text-sm text-muted-foreground max-w-md leading-relaxed">
+                Votre compte ne dispose pas des privilèges administrateur pour accéder à ce module. Seuls les comptes administrateurs peuvent consulter cette section.
+              </p>
+              <Button asChild className="mt-2">
+                <Link to="/">Retour au tableau de bord</Link>
+              </Button>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );
