@@ -242,23 +242,14 @@ const analyzeTextWithIaFn = createServerFn({ method: "POST" })
     return text;
   })
   .handler(async ({ data: text }) => {
+    const sublyxKey = process.env.SUBLYX_API_KEY || process.env.VITE_SUBLYX_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-    if (!geminiKey) {
+
+    if (!sublyxKey && !geminiKey) {
       return { success: false, error: "Clé API non configurée." };
     }
 
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `Tu es un expert anti-désinformation pour la plateforme ASIMBA du Cameroun. Analyse l'affirmation suivante extraite d'une source publique (médias, réseaux sociaux) :
+    const promptText = `Tu es un expert anti-désinformation pour la plateforme ASIMBA du Cameroun. Analyse l'affirmation suivante extraite d'une source publique (médias, réseaux sociaux) :
 
 "${text}"
 
@@ -275,7 +266,53 @@ Champs JSON attendus :
 Notes pour l'analyse :
 - Si l'information est vraie, le verdict doit être "vrai", le score doit être élevé (ex: 90 ou 95 pour représenter la fiabilité), et la catégorie "Actualité vérifiée".
 - Si l'information est fausse ou trompeuse, le verdict doit être "faux" ou "trompeur", le score doit représenter le niveau de désinformation/risque, et la catégorie doit être "Désinformation", "Incitation à la violence" ou "Escroquerie / Phishing".
-`,
+`;
+
+    // 1. Call via Sublyx API if configured (OpenAI format)
+    if (sublyxKey) {
+      try {
+        const response = await fetch("https://api.sublyx.org/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${sublyxKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: promptText }],
+            response_format: { type: "json_object" }
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erreur API Sublyx : ${response.statusText}`);
+        }
+
+        const resData = await response.json();
+        const rawText = resData.choices?.[0]?.message?.content;
+        if (!rawText) throw new Error("Réponse Sublyx vide.");
+        
+        const parsed = JSON.parse(rawText.trim());
+        return { success: true, data: parsed };
+      } catch (err: unknown) {
+        console.error("[Sublyx AI Error]", err);
+        return { success: false, error: "Erreur lors de l'analyse via Sublyx." };
+      }
+    }
+
+    // 2. Fallback to native Gemini API
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: promptText,
                   },
                 ],
               },
@@ -306,7 +343,7 @@ Notes pour l'analyse :
     }
   });
 
-// Server-side simulated comments generator using Gemini
+// Server-side simulated comments generator using Gemini or Sublyx
 const generateSimulatedCommentsFn = createServerFn({ method: "POST" })
   .validator((input: { target: string; platform: string }) => {
     if (typeof input.target !== "string" || typeof input.platform !== "string") {
@@ -315,23 +352,14 @@ const generateSimulatedCommentsFn = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data: { target, platform } }) => {
+    const sublyxKey = process.env.SUBLYX_API_KEY || process.env.VITE_SUBLYX_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-    if (!geminiKey) {
+
+    if (!sublyxKey && !geminiKey) {
       return { success: false, error: "Clé API non configurée." };
     }
 
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `Tu es un générateur de données de test pour la plateforme anti-désinformation ASIMBA au Cameroun.
+    const promptText = `Tu es un générateur de données de test pour la plateforme anti-désinformation ASIMBA au Cameroun.
 Génère une liste de 3 commentaires/publications réalistes et récents pour la source suivante :
 Plateforme : ${platform}
 Cible (Page/Compte/Hashtag) : ${target}
@@ -354,7 +382,53 @@ Format attendu :
     "city": "Yaoundé",
     "region": "Centre"
   }
-]`,
+]`;
+
+    // 1. Call via Sublyx API if configured (OpenAI format)
+    if (sublyxKey) {
+      try {
+        const response = await fetch("https://api.sublyx.org/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${sublyxKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: promptText }],
+            response_format: { type: "json_object" }
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erreur API Sublyx : ${response.statusText}`);
+        }
+
+        const resData = await response.json();
+        const rawText = resData.choices?.[0]?.message?.content;
+        if (!rawText) throw new Error("Réponse Sublyx vide.");
+        
+        const parsed = JSON.parse(rawText.trim());
+        return { success: true, comments: parsed };
+      } catch (err: unknown) {
+        console.error("[Sublyx Simulation Error]", err);
+        return { success: false, error: "Erreur de génération via Sublyx." };
+      }
+    }
+
+    // 2. Fallback to native Gemini API
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: promptText,
                   },
                 ],
               },
@@ -701,7 +775,12 @@ function AnalyseIAPage() {
     setScannedComments([]);
     setFactcheckedIds({});
 
-    const hasKey = !!(import.meta.env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY);
+    const hasKey = !!(
+      import.meta.env.VITE_GEMINI_API_KEY || 
+      process.env.VITE_GEMINI_API_KEY ||
+      import.meta.env.VITE_SUBLYX_API_KEY || 
+      process.env.VITE_SUBLYX_API_KEY
+    );
     const isUrl = targetUrl.trim().startsWith("http");
 
     // 1. Live Scraping Flow (if target is a URL)
@@ -833,7 +912,7 @@ function AnalyseIAPage() {
         toast.success("Analyse par l'IA réelle Gemini complétée !");
       } else {
         evaluatedComments = [evaluateText(cleanText, 0)];
-        toast.info("Analyse hors-ligne effectuée (Clé VITE_GEMINI_API_KEY absente).");
+        toast.info("Analyse hors-ligne effectuée (Clé VITE_SUBLYX_API_KEY ou VITE_GEMINI_API_KEY absente).");
       }
     } else {
       // Dynamic Simulation with Gemini if key is present
