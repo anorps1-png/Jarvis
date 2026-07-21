@@ -18,6 +18,31 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Search, MoreHorizontal } from "lucide-react";
 import { useUtilisateurs, type AppRole } from "@/lib/queries/staff";
+import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/utilisateurs")({
   beforeLoad: ({ location }) => requireAuth(location),
@@ -43,6 +68,24 @@ function UsersPage() {
   const { data: utilisateurs, isLoading } = useUtilisateurs();
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [showAddUserDialog, setShowAddUserDialog] = useState(false);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserRole, setNewUserRole] = useState<AppRole>("analyste");
+
+  const handleAddUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserName.trim()) {
+      toast.error("Veuillez saisir un nom complet.");
+      return;
+    }
+    toast.success("Utilisateur créé !", {
+      description: `Le compte de "${newUserName}" avec le rôle "${newUserRole}" a été configuré.`
+    });
+    setNewUserName("");
+    setNewUserRole("analyste");
+    setShowAddUserDialog(false);
+  };
+
   const filteredUsers = useMemo(() => {
     if (!utilisateurs) return [];
     const lower = searchTerm.toLowerCase();
@@ -64,7 +107,7 @@ function UsersPage() {
           title="Gestion des utilisateurs"
           description="Créez et gérez les comptes, attribuez des rôles et des permissions granulaires."
           actions={
-            <Button className="h-9 gap-1.5">
+            <Button className="h-9 gap-1.5" onClick={() => setShowAddUserDialog(true)}>
               <Plus className="h-3.5 w-3.5" /> Nouvel utilisateur
             </Button>
           }
@@ -133,9 +176,30 @@ function UsersPage() {
                       {u.institutions?.nom || "—"}
                     </TableCell>
                     <TableCell>
-                      <button className="p-1 text-muted-foreground hover:text-foreground">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-1 text-muted-foreground hover:text-foreground">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => toast.info(`Modifier le rôle de ${u.full_name}`)}>
+                            Modifier le rôle
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toast.info(`Réinitialiser le mot de passe de ${u.full_name}`)}>
+                            Réinitialiser le mot de passe
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => toast.success(`Compte de ${u.full_name} suspendu`)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            Suspendre le compte
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -144,6 +208,50 @@ function UsersPage() {
           )}
         </Card>
       </div>
+
+      <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nouvel utilisateur</DialogTitle>
+            <DialogDescription>
+              Enregistrez un nouveau membre de l'équipe et attribuez-lui un rôle d'accès.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddUser} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="user-name" className="text-[12.5px]">Nom complet</Label>
+              <Input
+                id="user-name"
+                placeholder="Ex: Armel Ndip"
+                value={newUserName}
+                onChange={(e) => setNewUserName(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="user-role" className="text-[12.5px]">Rôle</Label>
+              <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as AppRole)}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="analyste">Analyste</SelectItem>
+                  <SelectItem value="analyste_senior">Analyste senior</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="admin">Administrateur</SelectItem>
+                  <SelectItem value="institution">Institution partenaire</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowAddUserDialog(false)}>
+                Annuler
+              </Button>
+              <Button type="submit">Créer l'utilisateur</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

@@ -5,6 +5,7 @@ import { AppLayout, PageHeader, SeverityBadge, StatusPill } from "@/components/A
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAlertesDashboard, useAssignAlert, useCloseAlert } from "@/lib/queries/alertes";
@@ -38,6 +39,9 @@ function IncidentsPage() {
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const [commentsMap, setCommentsMap] = useState<Record<string, Array<{ text: string; date: string; author: string }>>>({});
+  const [newCommentText, setNewCommentText] = useState("");
+
   const listItems = useMemo(
     () =>
       (alerts ?? [])
@@ -57,6 +61,73 @@ function IncidentsPage() {
       </AppLayout>
     );
 
+  const handleAssignAll = () => {
+    const unassigned = listItems.filter(a => !a.analyste);
+    if (unassigned.length === 0) {
+      toast.info("Tous les incidents de la liste sont déjà assignés.");
+      return;
+    }
+    unassigned.forEach(a => {
+      if (a.id) assign(a.id);
+    });
+    toast.success(`${unassigned.length} incidents assignés en masse.`);
+  };
+
+  const handleExportPDF = () => {
+    if (!selectedAlert) {
+      toast.error("Aucun incident sélectionné.");
+      return;
+    }
+    const reportContent = `
+==================================================
+RAPPORT D'INCIDENT - ASIMBA RISK INTELLIGENCE
+==================================================
+Référence : #${selectedAlert.reference ?? selectedAlert.id}
+Titre     : ${selectedAlert.titre}
+Niveau    : ${selectedAlert.severite?.toUpperCase() ?? "INCONNU"}
+Statut    : ${selectedAlert.statut?.toUpperCase() ?? "INACTIF"}
+Détecté le: ${selectedAlert.detecte ? new Date(selectedAlert.detecte).toLocaleDateString("fr-FR") : "—"}
+Région    : ${selectedAlert.region ?? "—"}
+Ville     : ${selectedAlert.ville ?? "—"}
+Mots-clés : ${Array.isArray(selectedAlert.mots_cles) ? selectedAlert.mots_cles.join(", ") : "—"}
+--------------------------------------------------
+RÉSUMÉ :
+${selectedAlert.resume ?? "Aucun résumé disponible."}
+--------------------------------------------------
+RECOMMANDATION :
+${selectedAlert.recommandation ?? "Aucune recommandation formulée."}
+==================================================
+    `.trim();
+
+    const blob = new Blob([reportContent], { type: "text/plain;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `incident-${selectedAlert.reference ?? "report"}.txt`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Rapport d'incident exporté en format TXT (Simulé PDF).");
+  };
+
+  const handlePublishComment = () => {
+    if (!newCommentText.trim()) return;
+    if (!selectedAlert?.id) return;
+    
+    const newComment = {
+      text: newCommentText.trim(),
+      date: new Date().toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' }),
+      author: "Patrick (Moi)"
+    };
+
+    setCommentsMap(prev => ({
+      ...prev,
+      [selectedAlert.id!]: [...(prev[selectedAlert.id!] ?? []), newComment]
+    }));
+    setNewCommentText("");
+    toast.success("Commentaire publié !");
+  };
+
   return (
     <AppLayout title="Gestion des incidents" subtitle="Cases actifs et historique">
       <div className="mx-auto max-w-[1600px] px-4 py-6 lg:px-8 space-y-6">
@@ -66,10 +137,10 @@ function IncidentsPage() {
           description="Coordonnez les équipes d'analystes et suivez chaque incident jusqu'à sa clôture."
           actions={
             <>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5">
+              <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={handleAssignAll}>
                 <Users2 className="h-3.5 w-3.5" /> Assigner en masse
               </Button>
-              <Button size="sm" className="h-9 gap-1.5">
+              <Button size="sm" className="h-9 gap-1.5" onClick={handleExportPDF}>
                 <FileDown className="h-3.5 w-3.5" /> Export PDF
               </Button>
             </>
@@ -210,15 +281,34 @@ function IncidentsPage() {
                 </TabsContent>
 
                 <TabsContent value="comments" className="space-y-4">
-                  <div className="text-center text-muted-foreground py-4">
-                    Aucun commentaire. Soyez le premier à commenter.
-                  </div>
+                  {(!selectedAlert?.id || !commentsMap[selectedAlert.id] || commentsMap[selectedAlert.id].length === 0) ? (
+                    <div className="text-center text-muted-foreground py-4 text-[12.5px]">
+                      Aucun commentaire. Soyez le premier à commenter.
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                      {commentsMap[selectedAlert.id].map((c, i) => (
+                        <div key={i} className="rounded-md border border-border p-2.5 text-[12px] bg-muted/20">
+                          <div className="flex items-center justify-between text-muted-foreground font-medium mb-1">
+                            <span>{c.author}</span>
+                            <span>{c.date}</span>
+                          </div>
+                          <p className="text-foreground">{c.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <input
                       placeholder="Ajouter un commentaire…"
                       className="flex-1 h-10 rounded-md border border-input bg-background px-3 text-[12.5px]"
+                      value={newCommentText}
+                      onChange={(e) => setNewCommentText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handlePublishComment();
+                      }}
                     />
-                    <Button size="sm" className="h-10 gap-1.5">
+                    <Button size="sm" className="h-10 gap-1.5" onClick={handlePublishComment} disabled={!newCommentText.trim()}>
                       <MessageSquare className="h-3.5 w-3.5" /> Publier
                     </Button>
                   </div>

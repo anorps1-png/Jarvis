@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -162,6 +163,47 @@ function StatsPage() {
     }));
   }, [analystsStats]);
 
+  const handleExportCSV = () => {
+    let csvContent = "--- TENDANCES MENSUELLES (Alertes vs Resolutions) ---\n";
+    csvContent += "Mois,Alertes,Resolutions\n";
+    monthlyTrend.forEach(row => {
+      csvContent += `"${row.mois}",${row.alertes},${row.resolues}\n`;
+    });
+
+    csvContent += "\n--- CATEGORIES D'ALERTES ---\n";
+    csvContent += "Categorie,Total\n";
+    categoriesData.forEach(row => {
+      csvContent += `"${row.nom}",${row.part}\n`;
+    });
+
+    csvContent += "\n--- REPARTITION REGIONALE ---\n";
+    csvContent += "Region,Alertes,Critiques\n";
+    regionsData.forEach(row => {
+      csvContent += `"${row.region}",${row.alertes},${row.critiques}\n`;
+    });
+
+    csvContent += "\n--- TOP ANALYSTES ---\n";
+    csvContent += "Analyste,Dossiers Traites,Taux Resolution (%),Duree Moyenne\n";
+    topAnalystes.forEach(row => {
+      csvContent += `"${row.nom}",${row.traites},${row.score},"${row.moyenne}"\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `statistiques-asimba-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Données statistiques exportées en CSV !");
+  };
+
+  const handleExportPDF = () => {
+    window.print();
+    toast.success("Impression lancée / Export PDF.");
+  };
+
   return (
     <AppLayout title="Statistiques" subtitle="Analyse comparative et tendances">
       <div className="mx-auto max-w-[1600px] px-4 py-6 lg:px-8 space-y-6">
@@ -181,10 +223,10 @@ function StatsPage() {
                   <SelectItem value="12">12 derniers mois</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5">
+              <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={handleExportCSV}>
                 <FileSpreadsheet className="h-3.5 w-3.5" /> CSV
               </Button>
-              <Button size="sm" className="h-9 gap-1.5">
+              <Button size="sm" className="h-9 gap-1.5" onClick={handleExportPDF}>
                 <Download className="h-3.5 w-3.5" /> PDF
               </Button>
             </>

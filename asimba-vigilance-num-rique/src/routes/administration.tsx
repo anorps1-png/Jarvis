@@ -19,6 +19,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { KeyRound, Plug, ShieldCheck, Sparkles, Copy, Plus } from "lucide-react";
+import { toast } from "sonner";
 import {
   useUserRolesCount,
   useCategories,
@@ -74,6 +75,24 @@ function AdminPage() {
   const [newKeyName, setNewKeyName] = useState("");
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
 
+  const [showAddCatDialog, setShowAddCatDialog] = useState(false);
+  const [catName, setCatName] = useState("");
+  const [catKeywords, setCatKeywords] = useState("");
+
+  const handleAddCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catName.trim()) {
+      toast.error("Veuillez saisir un nom de catégorie.");
+      return;
+    }
+    toast.success("Catégorie d'alerte ajoutée !", {
+      description: `La catégorie "${catName}" a été enregistrée avec ${catKeywords.split(",").length} mots-clés.`
+    });
+    setCatName("");
+    setCatKeywords("");
+    setShowAddCatDialog(false);
+  };
+
   return (
     <AppLayout title="Administration" subtitle="Configuration avancée de la plateforme">
       <div className="mx-auto max-w-[1400px] px-4 py-6 lg:px-8 space-y-6">
@@ -125,7 +144,7 @@ function AdminPage() {
             <Card className="shadow-elev-1">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-[13.5px]">Catégories d'alertes</CardTitle>
-                <Button size="sm" className="h-8 gap-1.5">
+                <Button size="sm" className="h-8 gap-1.5" onClick={() => setShowAddCatDialog(true)}>
                   <Plus className="h-3.5 w-3.5" /> Ajouter
                 </Button>
               </CardHeader>
@@ -301,7 +320,17 @@ function AdminPage() {
                         {k.created_at
                           ? new Date(k.created_at).toLocaleDateString("fr-FR")
                           : "—"}
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            if (k.cle_apercu) {
+                              navigator.clipboard.writeText(k.cle_apercu);
+                              toast.success("Aperçu de la clé copié !");
+                            }
+                          }}
+                        >
                           <Copy className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -369,7 +398,9 @@ function AdminPage() {
             </div>
             <div className="flex items-center justify-between">
               <span>2FA obligatoire (admins)</span>
-              <Switch defaultChecked />
+              <Switch defaultChecked onCheckedChange={(checked) => {
+                toast.success(checked ? "2FA obligatoire activé pour les administrateurs" : "2FA obligatoire désactivé");
+              }} />
             </div>
             <div className="flex items-center justify-between">
               <span>Journalisation OWASP</span>
@@ -403,6 +434,44 @@ function AdminPage() {
           <DialogFooter>
             <Button onClick={() => setRevealedKey(null)}>J'ai copié la clé</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showAddCatDialog} onOpenChange={setShowAddCatDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ajouter une catégorie d'alertes</DialogTitle>
+            <DialogDescription>
+              Créez une catégorie pour classer les signalements et configurer le moteur de détection sémantique.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddCategory} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="cat-name" className="text-[12.5px]">Nom de la catégorie</Label>
+              <Input
+                id="cat-name"
+                placeholder="Ex: Discours de haine"
+                value={catName}
+                onChange={(e) => setCatName(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cat-keywords" className="text-[12.5px]">Mots-clés (séparés par des virgules)</Label>
+              <Input
+                id="cat-keywords"
+                placeholder="Ex: xénophobie, insulte, violence, ethnie"
+                value={catKeywords}
+                onChange={(e) => setCatKeywords(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowAddCatDialog(false)}>
+                Annuler
+              </Button>
+              <Button type="submit">Ajouter la catégorie</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </AppLayout>

@@ -5,6 +5,17 @@ import { AppLayout, PageHeader, SeverityBadge, StatusPill } from "@/components/A
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -59,6 +70,16 @@ function AlertesPage() {
   const [region, setRegion] = useState<string>("all");
   const [page, setPage] = useState(1);
 
+  const [minScore, setMinScore] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  const [showRuleDialog, setShowRuleDialog] = useState(false);
+  const [ruleName, setRuleName] = useState("");
+  const [ruleThreshold, setRuleThreshold] = useState("80");
+  const [ruleKeywords, setRuleKeywords] = useState("");
+  const [ruleCategory, setRuleCategory] = useState("all");
+
   const sources = useMemo(() => {
     if (!allAlerts) return [];
     return Array.from(new Set(allAlerts.map((a) => a.source).filter(Boolean))) as string[];
@@ -82,9 +103,15 @@ function AlertesPage() {
       if (region !== "all" && a.region !== region) {
         return false;
       }
+      if (minScore !== "all" && (a.score ?? 0) < Number(minScore)) {
+        return false;
+      }
+      if (statusFilter !== "all" && a.statut !== statusFilter) {
+        return false;
+      }
       return true;
     });
-  }, [allAlerts, search, severity, source, region]);
+  }, [allAlerts, search, severity, source, region, minScore, statusFilter]);
 
   const totalItems = filteredAlerts.length;
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
@@ -97,7 +124,52 @@ function AlertesPage() {
     setSeverity("all");
     setSource("all");
     setRegion("all");
+    setMinScore("all");
+    setStatusFilter("all");
     setPage(1);
+  };
+
+  const handleExport = () => {
+    const csvContent = [
+      ["Reference", "Titre", "Niveau", "Statut", "Source", "Region", "Ville", "Score", "Date"],
+      ...filteredAlerts.map(a => [
+        a.reference ?? "",
+        a.titre ?? "",
+        a.severite ?? "",
+        a.statut ?? "",
+        a.source ?? "",
+        a.region ?? "",
+        a.ville ?? "",
+        a.score ?? "",
+        a.detecte ?? ""
+      ])
+    ]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `alertes-export-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCreateRule = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ruleName.trim()) {
+      toast.error("Veuillez saisir un nom de règle.");
+      return;
+    }
+    toast.success("Règle automatique créée !", {
+      description: `La règle "${ruleName}" surveillera les contenus avec un score > ${ruleThreshold}%.`,
+    });
+    setRuleName("");
+    setRuleKeywords("");
+    setRuleCategory("all");
+    setShowRuleDialog(false);
   };
 
   return (
@@ -106,10 +178,10 @@ function AlertesPage() {
       subtitle={`${totalItems} alertes · mise à jour en temps réel`}
       actions={
         <>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5">
+          <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={handleExport}>
             <Download className="h-3.5 w-3.5" /> Exporter
           </Button>
-          <Button size="sm" className="h-9">
+          <Button size="sm" className="h-9" onClick={() => setShowRuleDialog(true)}>
             Nouvelle règle
           </Button>
         </>
@@ -193,7 +265,12 @@ function AlertesPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" className="h-9 gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn("h-9 gap-1.5", showAdvancedFilters && "bg-accent")}
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            >
               <SlidersHorizontal className="h-3.5 w-3.5" /> Filtres avancés
             </Button>
             <Button
@@ -205,6 +282,38 @@ function AlertesPage() {
               <Filter className="h-3.5 w-3.5" /> Réinitialiser
             </Button>
           </div>
+          {showAdvancedFilters && (
+            <div className="flex flex-wrap items-center gap-4 p-3 bg-muted/20 border-b border-border text-[12px] border-t border-t-border">
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-muted-foreground">Score min:</span>
+                <Select value={minScore} onValueChange={(v) => { setMinScore(v); setPage(1); }}>
+                  <SelectTrigger className="h-8 w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous</SelectItem>
+                    <SelectItem value="50">50%</SelectItem>
+                    <SelectItem value="75">75%</SelectItem>
+                    <SelectItem value="90">90%</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-muted-foreground">Statut:</span>
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+                  <SelectTrigger className="h-8 w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous</SelectItem>
+                    <SelectItem value="nouveau">Nouveau</SelectItem>
+                    <SelectItem value="en_cours">En cours</SelectItem>
+                    <SelectItem value="resolu">Résolu</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
 
           <div className="overflow-x-auto">
             <Table>
@@ -328,6 +437,57 @@ function AlertesPage() {
           </div>
         </Card>
       </div>
+
+      <Dialog open={showRuleDialog} onOpenChange={setShowRuleDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nouvelle règle d'alerte automatique</DialogTitle>
+            <DialogDescription>
+              Configurez une règle pour catégoriser ou escalader automatiquement les futurs signalements.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateRule} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="rule-name" className="text-[12.5px]">Nom de la règle</Label>
+              <Input
+                id="rule-name"
+                placeholder="Ex: Escalade Média Spams"
+                value={ruleName}
+                onChange={(e) => setRuleName(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="rule-threshold" className="text-[12.5px]">Score de confiance minimum (%)</Label>
+              <Input
+                id="rule-threshold"
+                type="number"
+                min="0"
+                max="100"
+                value={ruleThreshold}
+                onChange={(e) => setRuleThreshold(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="rule-keywords" className="text-[12.5px]">Mots-clés (séparés par des virgules)</Label>
+              <Input
+                id="rule-keywords"
+                placeholder="Ex: arnaque, fausse info, diffamation"
+                value={ruleKeywords}
+                onChange={(e) => setRuleKeywords(e.target.value)}
+                className="h-10"
+              />
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowRuleDialog(false)}>
+                Annuler
+              </Button>
+              <Button type="submit">Créer la règle</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

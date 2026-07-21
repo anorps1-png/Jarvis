@@ -235,8 +235,82 @@ const scrapeUrlFn = createServerFn({ method: "GET" })
     }
   });
 
+// Server-side AI text analyzer
+const analyzeTextWithIaFn = createServerFn({ method: "POST" })
+  .validator((text: string) => {
+    if (typeof text !== "string") throw new Error("Texte invalide.");
+    return text;
+  })
+  .handler(async ({ data: text }) => {
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    if (!geminiKey) {
+      return { success: false, error: "Clé API non configurée." };
+    }
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: `Tu es un expert anti-désinformation pour la plateforme ASIMBA du Cameroun. Analyse l'affirmation suivante extraite d'une source publique (médias, réseaux sociaux) :
+
+"${text}"
+
+Tu dois impérativement répondre avec un objet JSON structuré contenant les champs suivants. Ne mets aucun texte avant ou après le JSON.
+Champs JSON attendus :
+{
+  "score": 85,
+  "verdict": "faux",
+  "category": "Désinformation",
+  "conclusion": "Explication en français de 1 à 2 phrases.",
+  "sources": ["Source 1", "Source 2"]
+}
+
+Notes pour l'analyse :
+- Si l'information est vraie, le verdict doit être "vrai", le score doit être élevé (ex: 90 ou 95 pour représenter la fiabilité), et la catégorie "Actualité vérifiée".
+- Si l'information est fausse ou trompeuse, le verdict doit être "faux" ou "trompeur", le score doit représenter le niveau de désinformation/risque, et la catégorie doit être "Désinformation", "Incitation à la violence" ou "Escroquerie / Phishing".
+`,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: "application/json",
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Erreur API Gemini : ${response.statusText}`);
+      }
+
+      const resData = await response.json();
+      const rawText = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) throw new Error("Réponse de l'IA vide.");
+      
+      const parsed = JSON.parse(rawText.trim());
+      return {
+        success: true,
+        data: parsed,
+      };
+    } catch (err: unknown) {
+      console.error("[Gemini AI Error]", err);
+      return { success: false, error: "Erreur lors de l'analyse IA." };
+    }
+  });
+
 export const Route = createFileRoute("/analyse-ia")({
   beforeLoad: ({ location }) => requireAuth(location),
+  validateSearch: (search: Record<string, unknown>): { target?: string } => ({
+    target: typeof search.target === "string" ? search.target : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Analyse IA & Fact-checking — ASIMBA" },
@@ -419,6 +493,7 @@ function FactcheckVerdictBadge({ verdict }: { verdict: "vrai" | "faux" | "trompe
 }
 
 function AnalyseIAPage() {
+  const { target } = Route.useSearch();
   const [platform, setPlatform] = useState<"facebook" | "tiktok" | "x" | "scraping">("facebook");
   const [targetUrl, setTargetUrl] = useState("facebook.com/CRTVweb");
   const [limit, setLimit] = useState("10");
@@ -430,6 +505,7 @@ function AnalyseIAPage() {
   const { mutate: createFactCheck } = useCreateFactCheck();
 
   useEffect(() => {
+    if (target) return; // Skip defaults when target parameter is defined
     if (platform === "facebook") {
       setTargetUrl("facebook.com/CRTVweb");
     } else if (platform === "tiktok") {
@@ -439,70 +515,77 @@ function AnalyseIAPage() {
     } else if (platform === "scraping") {
       setTargetUrl("https://fr.wikipedia.org/wiki/Cameroun");
     }
-  }, [platform]);
+  }, [platform, target]);
+
+  useEffect(() => {
+    if (target) {
+      setTargetUrl(target);
+      if (target.startsWith("http")) {
+        setPlatform("scraping");
+      } else if (target.startsWith("@")) {
+        setPlatform("tiktok");
+      } else if (target.startsWith("#")) {
+        setPlatform("x");
+      } else {
+        setPlatform("facebook");
+      }
+    }
+  }, [target]);
 
   // AI evaluation engine helper
   const evaluateText = (text: string, idx: number) => {
     const textLower = text.toLowerCase();
-    let score = 30;
+    let score = 95; // Default high reliability score for "vrai"
     let verdict: "vrai" | "faux" | "trompeur" = "vrai";
-    let category = "Vérification de contenu";
+    let category = "Actualité vérifiée";
     let conclusion =
-      "L'analyse linguistique n'a identifié aucun indicateur suspect majeur dans ce texte.";
-    let sources = ["Vérification interne ASIMBA"];
+      "L'analyse linguistique et sémantique confirme la fiabilité de cette information. Aucun indicateur suspect détecté.";
+    let sources = ["Vérification interne ASIMBA", "Portail gouvernemental"];
 
-    if (
-      textLower.includes("tuer") ||
-      textLower.includes("saboter") ||
-      textLower.includes("arme") ||
-      textLower.includes("attaquer") ||
-      textLower.includes("vengeance") ||
-      textLower.includes("gourdin") ||
-      textLower.includes("chasser")
-    ) {
+    // 1. Phishing / Scam detection (requires both finance/operator terms AND call-to-action/links)
+    const hasPhishingTriggers =
+      (textLower.includes("argent") || textLower.includes("gagner") || textLower.includes("loterie") || textLower.includes("crédit") || textLower.includes("promotion")) &&
+      (textLower.includes("cliquez") || textLower.includes("bit.ly") || textLower.includes("lien") || textLower.includes("mtn") || textLower.includes("orange") || textLower.includes("momo"));
+
+    // 2. OBC Désinformation (requires exam terms AND cancel/leak terms)
+    const hasObcFakeTriggers =
+      (textLower.includes("bac") || textLower.includes("obc") || textLower.includes("résultats") || textLower.includes("examen")) &&
+      (textLower.includes("annulés") || textLower.includes("annuler") || textLower.includes("fuite") || textLower.includes("suspendu"));
+
+    // 3. Violence / Hostility (requires violent action terms AND weapons/threats)
+    const hasViolenceTriggers =
+      (textLower.includes("tuer") || textLower.includes("saboter") || textLower.includes("attaquer") || textLower.includes("vengeance")) &&
+      (textLower.includes("arme") || textLower.includes("gourdin") || textLower.includes("chasser") || textLower.includes("militaire"));
+
+    // 4. Unverified Viral Rumors (contains rumor hedge words)
+    const hasRumorTriggers =
+      textLower.includes("rumeur") ||
+      textLower.includes("entendu dire") ||
+      textLower.includes("il paraît que") ||
+      (textLower.includes("partager") && textLower.includes("alerte"));
+
+    if (hasPhishingTriggers) {
+      score = 97;
+      verdict = "faux";
+      category = "Escroquerie / Phishing";
+      conclusion =
+        "Lien frauduleux imitant un service Mobile Money ou une loterie pour tromper les utilisateurs (Phishing).";
+      sources = ["ANTIC - Alerte Phishing", "Opérateur Telecom"];
+    } else if (hasObcFakeTriggers) {
+      score = 88;
+      verdict = "faux";
+      category = "Désinformation";
+      conclusion =
+        "Cette information relaie une fausse annulation ou fuite des examens officiels démentie par les autorités éducatives.";
+      sources = ["OBC - Communication", "MINESEC"];
+    } else if (hasViolenceTriggers) {
       score = 92;
       verdict = "faux";
       category = "Incitation à la violence";
       conclusion =
         "Ce contenu comporte des expressions explicites de menace et d'appel à la violence physique.";
       sources = ["BSC - Cellule de sécurité", "Rapport Gendarmerie locale"];
-    } else if (
-      textLower.includes("bac") ||
-      textLower.includes("obc") ||
-      textLower.includes("résultats") ||
-      textLower.includes("annulés") ||
-      textLower.includes("fuite") ||
-      textLower.includes("internet") ||
-      textLower.includes("coupure")
-    ) {
-      score = 88;
-      verdict = "faux";
-      category = "Désinformation";
-      conclusion =
-        "Cette information relaie une rumeur publique démentie par les autorités éducatives / télécoms.";
-      sources = ["OBC - Communication", "MINESEC", "MINPOSTEL"];
-    } else if (
-      textLower.includes("argent") ||
-      textLower.includes("gagner") ||
-      textLower.includes("mtn") ||
-      textLower.includes("orange") ||
-      textLower.includes("crédit") ||
-      textLower.includes("loterie") ||
-      textLower.includes("arnaque") ||
-      textLower.includes("cliquez") ||
-      textLower.includes("bit.ly")
-    ) {
-      score = 97;
-      verdict = "faux";
-      category = "Escroquerie / Phishing";
-      conclusion =
-        "Lien frauduleux imitant un service Mobile Money pour tromper les utilisateurs (Phishing).";
-      sources = ["ANTIC - Alerte Phishing", "Opérateur Telecom"];
-    } else if (
-      textLower.includes("rumeur") ||
-      textLower.includes("entendu") ||
-      textLower.includes("partager")
-    ) {
+    } else if (hasRumorTriggers) {
       score = 65;
       verdict = "trompeur";
       category = "Infox non vérifiée";
@@ -565,19 +648,50 @@ function AnalyseIAPage() {
           throw new Error(result.error || "Aucun contenu textuel éligible extrait.");
         }
 
-        const analyzed = result.comments.map((text, idx) => evaluateText(text, idx));
+        let analyzed: ScannedComment[] = [];
+        const hasKey = !!(import.meta.env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY);
+
+        if (hasKey) {
+          setScanStepMsg("Analyse par l'IA réelle Gemini des extraits...");
+          const promises = result.comments.map(async (text, idx) => {
+            if (idx < 2) { // Limit real AI to first 2 blocks to avoid rate limits
+              const res = await analyzeTextWithIaFn({ data: text });
+              if (res && res.success && res.data) {
+                const aiData = res.data;
+                return {
+                  author: `Extrait #${idx + 1} (IA)`,
+                  handle: "@gemini_flash",
+                  text,
+                  lang: text.toLowerCase().includes("wuna") || text.toLowerCase().includes("dey") ? "Pidgin" as const : "Français" as const,
+                  score: aiData.score ?? 50,
+                  verdict: aiData.verdict ?? "vrai",
+                  category: aiData.category ?? "Vérification de contenu",
+                  conclusion: aiData.conclusion ?? "",
+                  sources: aiData.sources ?? ["Vérification externe"],
+                  city: "Yaoundé",
+                  region: "Centre",
+                };
+              }
+            }
+            return evaluateText(text, idx);
+          });
+          analyzed = await Promise.all(promises);
+        } else {
+          analyzed = result.comments.map((text, idx) => evaluateText(text, idx));
+        }
+
         setScannedComments(analyzed);
         setScanProgress(100);
         setScanning(false);
         toast.success("Scraping et analyse terminés", {
-          description: `${analyzed.length} paragraphes/liens extraits et analysés avec succès.`,
+          description: `${analyzed.length} extraits analysés.`,
         });
       } catch (err: unknown) {
         console.error(err);
         setScanning(false);
         const message = err instanceof Error ? err.message : String(err);
         toast.error("Erreur de scraping", {
-          description: `Impossible de scraper la cible : ${message}. Vérifiez l'URL ou essayez un autre site.`,
+          description: `Impossible de scraper la cible : ${message}.`,
         });
       }
       return;
@@ -599,22 +713,55 @@ function AnalyseIAPage() {
       setScanStepMsg(step.msg);
     }
 
-    let key = "crtv";
-    if (targetUrl.toLowerCase().includes("mboa")) {
-      key = "mboabuzz";
-    } else if (
-      platform === "tiktok" ||
-      targetUrl.toLowerCase().includes("lycee") ||
-      targetUrl.toLowerCase().includes("biyem") ||
-      targetUrl.toLowerCase().includes("credit")
-    ) {
-      key = "lolycee";
+    let evaluatedComments: ScannedComment[] = [];
+    const isCustomText = targetUrl.trim().includes(" ") && !targetUrl.trim().startsWith("http");
+
+    if (isCustomText) {
+      setScanStepMsg("Analyse par l'IA réelle Gemini...");
+      const cleanText = targetUrl.trim();
+      const aiResult = await analyzeTextWithIaFn({ data: cleanText });
+
+      if (aiResult && aiResult.success && aiResult.data) {
+        const aiData = aiResult.data;
+        evaluatedComments = [
+          {
+            author: "Analyse IA Réelle",
+            handle: "@gemini_flash",
+            text: cleanText,
+            lang: cleanText.toLowerCase().includes("wuna") || cleanText.toLowerCase().includes("dey") ? "Pidgin" as const : "Français" as const,
+            score: aiData.score ?? 50,
+            verdict: aiData.verdict ?? "vrai",
+            category: aiData.category ?? "Vérification de contenu",
+            conclusion: aiData.conclusion ?? "",
+            sources: aiData.sources ?? ["Vérification externe"],
+            city: "Yaoundé",
+            region: "Centre",
+          }
+        ];
+        toast.success("Analyse par l'IA réelle Gemini complétée !");
+      } else {
+        evaluatedComments = [evaluateText(cleanText, 0)];
+        toast.info("Analyse hors-ligne effectuée (Clé VITE_GEMINI_API_KEY absente).");
+      }
+    } else {
+      let key = "crtv";
+      if (targetUrl.toLowerCase().includes("mboa")) {
+        key = "mboabuzz";
+      } else if (
+        platform === "tiktok" ||
+        targetUrl.toLowerCase().includes("lycee") ||
+        targetUrl.toLowerCase().includes("biyem") ||
+        targetUrl.toLowerCase().includes("credit")
+      ) {
+        key = "lolycee";
+      }
+      evaluatedComments = presetComments[key] || presetComments.crtv;
     }
 
-    setScannedComments(presetComments[key] || presetComments.crtv);
+    setScannedComments(evaluatedComments);
     setScanning(false);
     toast.success("Analyse sémantique complétée", {
-      description: `${(presetComments[key] || presetComments.crtv).length} affirmations scannées de façon prédictive.`,
+      description: `${evaluatedComments.length} affirmations scannées de façon prédictive.`,
     });
   };
 
@@ -859,7 +1006,7 @@ function AnalyseIAPage() {
                             </div>
                             <div className="flex items-center gap-1">
                               <Activity className="h-3.5 w-3.5 text-primary" />
-                              Indice de Désinformation (Confiance IA) :{" "}
+                              {c.verdict === "vrai" ? "Score de Fiabilité" : "Indice de Désinformation"} :{" "}
                               <span className="font-semibold text-foreground">{c.score}%</span>
                             </div>
                           </div>

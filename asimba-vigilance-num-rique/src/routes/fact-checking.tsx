@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
@@ -69,6 +69,7 @@ function FactPage() {
   const { data: factChecks, isLoading } = useFactChecks({ publie: true });
   const { mutate: togglePublish } = useUpdateFactCheck();
   const [searchTerm, setSearchTerm] = useState("");
+  const navigate = useNavigate();
 
   const filtered = useMemo(() => {
     if (!factChecks) return [];
@@ -100,7 +101,12 @@ function FactPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button className="h-10">Vérifier</Button>
+            <Button className="h-10" onClick={() => {
+              navigate({
+                to: "/analyse-ia",
+                search: searchTerm ? { target: searchTerm } : undefined
+              });
+            }}>Vérifier</Button>
           </div>
         </Card>
 

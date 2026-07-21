@@ -1,6 +1,9 @@
+import { useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { requireAuth } from "@/lib/auth";
 import { AppLayout, PageHeader, SeverityBadge } from "@/components/AppLayout";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,9 +50,36 @@ function CartePage() {
   const { data: regionsData } = useRegionsStats();
   const { data: allAlerts } = useAlertesDashboard({ limit: 200 });
 
+  const [mapMode, setMapMode] = useState<"heat" | "markers" | "clusters">("heat");
+  const [zoom, setZoom] = useState(1);
+  const [showGrid, setShowGrid] = useState(true);
+
   const alerts = allAlerts ?? [];
   const stats = regionsData ?? [];
   const maxAlerts = Math.max(...stats.map((s) => s.total ?? 0), 1);
+
+  const handleExport = () => {
+    const csvContent = [
+      ["Region", "Total Alertes", "Alertes Critiques"],
+      ...stats.map(s => [
+        s.region ?? "",
+        s.total ?? 0,
+        s.critiques ?? 0
+      ])
+    ]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `carte-export-regions-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Statistiques régionales de la carte exportées !");
+  };
 
   return (
     <AppLayout title="Carte des risques" subtitle="Répartition géographique · Cameroun">
@@ -71,7 +101,7 @@ function CartePage() {
                   <SelectItem value="h">Harcèlement</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5">
+              <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={handleExport}>
                 <Download className="h-3.5 w-3.5" /> Exporter
               </Button>
             </>
@@ -82,27 +112,70 @@ function CartePage() {
           <Card className="shadow-elev-1 relative overflow-hidden">
             <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between border-b border-border bg-card/80 backdrop-blur px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <button className="rounded-md px-2.5 py-1 text-[11.5px] font-medium bg-primary text-primary-foreground">
+                <button
+                  onClick={() => setMapMode("heat")}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors",
+                    mapMode === "heat"
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-muted"
+                  )}
+                >
                   Chaleur
                 </button>
-                <button className="rounded-md px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted">
+                <button
+                  onClick={() => setMapMode("markers")}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors",
+                    mapMode === "markers"
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-muted"
+                  )}
+                >
                   Marqueurs
                 </button>
-                <button className="rounded-md px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted">
+                <button
+                  onClick={() => setMapMode("clusters")}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors",
+                    mapMode === "clusters"
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-muted"
+                  )}
+                >
                   Clusters
                 </button>
               </div>
               <div className="flex items-center gap-1">
-                <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted">
+                <button
+                  title="Zoom +"
+                  onClick={() => setZoom(z => Math.min(3, z + 0.25))}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted transition-colors"
+                >
                   <PlusIcon className="h-3.5 w-3.5" />
                 </button>
-                <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted">
+                <button
+                  title="Zoom -"
+                  onClick={() => setZoom(z => Math.max(0.75, z - 0.25))}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted transition-colors"
+                >
                   <Minus className="h-3.5 w-3.5" />
                 </button>
-                <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted">
+                <button
+                  title="Afficher/Masquer la grille"
+                  onClick={() => setShowGrid(!showGrid)}
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted transition-colors",
+                    showGrid && "text-primary border-primary/30 bg-primary/5"
+                  )}
+                >
                   <Layers className="h-3.5 w-3.5" />
                 </button>
-                <button className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted">
+                <button
+                  title="Réinitialiser le zoom"
+                  onClick={() => setZoom(1)}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:bg-muted transition-colors"
+                >
                   <Maximize2 className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -130,61 +203,97 @@ function CartePage() {
                     />
                   </pattern>
                 </defs>
-                <rect width={W} height={H} fill="url(#grid-p)" />
-                <path
-                  d={CAMEROON_PATH}
-                  fill="var(--color-card)"
-                  stroke="var(--color-border)"
-                  strokeWidth="1.5"
-                />
 
-                {/* Heat blobs */}
-                {stats.map((region) => {
-                  const city = Object.values(villes).find((v) => v.region === region.region);
-                  if (!city) return null;
-                  const { x, y } = project(city.lat, city.lng);
-                  const intensity = 20 + ((region.total ?? 0) / maxAlerts) * 80;
-                  const isCrit = (region.critiques ?? 0) > 0;
-                  return (
-                    <circle
-                      key={region.region}
-                      cx={x}
-                      cy={y}
-                      r={intensity}
-                      fill={isCrit ? "url(#heat-critical)" : "url(#heat-warn)"}
-                    />
-                  );
-                })}
+                {showGrid && <rect width={W} height={H} fill="url(#grid-p)" />}
 
-                {/* City markers */}
-                {stats.map((region) => {
-                  const city = Object.values(villes).find((v) => v.region === region.region);
-                  if (!city) return null;
-                  const { x, y } = project(city.lat, city.lng);
-                  const isCrit = (region.critiques ?? 0) > 0;
-                  return (
-                    <g key={region.region + "m"}>
+                <g transform={`translate(${W/2}, ${H/2}) scale(${zoom}) translate(${-W/2}, ${-H/2})`}>
+                  <path
+                    d={CAMEROON_PATH}
+                    fill="var(--color-card)"
+                    stroke="var(--color-border)"
+                    strokeWidth="1.5"
+                  />
+
+                  {/* Heat blobs */}
+                  {mapMode === "heat" && stats.map((region) => {
+                    const city = Object.values(villes).find((v) => v.region === region.region);
+                    if (!city) return null;
+                    const { x, y } = project(city.lat, city.lng);
+                    const intensity = 20 + ((region.total ?? 0) / maxAlerts) * 80;
+                    const isCrit = (region.critiques ?? 0) > 0;
+                    return (
                       <circle
+                        key={region.region}
                         cx={x}
                         cy={y}
-                        r={4}
-                        fill={isCrit ? "var(--color-destructive)" : "var(--color-warning)"}
-                        stroke="white"
-                        strokeWidth="1.5"
+                        r={intensity / 2}
+                        fill={`url(#heat-${isCrit ? "critical" : "warn"})`}
                       />
-                      <text
-                        x={x + 8}
-                        y={y + 3}
-                        fontSize="10"
-                        fill="var(--color-foreground)"
-                        fontFamily="Inter"
-                        fontWeight="500"
-                      >
-                        {region.region}
-                      </text>
-                    </g>
-                  );
-                })}
+                    );
+                  })}
+
+                  {/* Markers */}
+                  {mapMode === "markers" && stats.map((region) => {
+                    const city = Object.values(villes).find((v) => v.region === region.region);
+                    if (!city) return null;
+                    const { x, y } = project(city.lat, city.lng);
+                    const isCrit = (region.critiques ?? 0) > 0;
+                    return (
+                      <g key={region.region + "m"} className="cursor-pointer group">
+                        <circle
+                          cx={x}
+                          cy={y}
+                          r={6}
+                          fill={isCrit ? "var(--color-destructive)" : "var(--color-warning)"}
+                          stroke="white"
+                          strokeWidth="1.5"
+                        />
+                        <text
+                          x={x + 8}
+                          y={y + 3}
+                          fontSize="9"
+                          fill="var(--color-foreground)"
+                          fontFamily="Inter"
+                          fontWeight="500"
+                          opacity="0.8"
+                        >
+                          {region.region}
+                        </text>
+                        <title>{`${region.region}: ${region.total} alertes`}</title>
+                      </g>
+                    );
+                  })}
+
+                  {/* Clusters */}
+                  {mapMode === "clusters" && stats.map((region) => {
+                    const city = Object.values(villes).find((v) => v.region === region.region);
+                    if (!city) return null;
+                    const { x, y } = project(city.lat, city.lng);
+                    const isCrit = (region.critiques ?? 0) > 0;
+                    return (
+                      <g key={region.region + "c"} className="cursor-pointer">
+                        <circle
+                          cx={x}
+                          cy={y}
+                          r={13}
+                          fill={isCrit ? "var(--color-destructive)" : "var(--color-primary)"}
+                          stroke="white"
+                          strokeWidth="1.8"
+                        />
+                        <text
+                          x={x}
+                          y={y + 3.5}
+                          textAnchor="middle"
+                          fontSize="9"
+                          fill="white"
+                          fontWeight="bold"
+                        >
+                          {region.total}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </g>
               </svg>
 
               <div className="absolute bottom-4 left-4 rounded-lg border border-border bg-card/95 backdrop-blur p-3 shadow-elev-2">

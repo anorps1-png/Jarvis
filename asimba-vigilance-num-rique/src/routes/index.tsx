@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { requireAuth, useCurrentUser } from "@/lib/auth";
 import { AppLayout, PageHeader, SeverityBadge, StatusPill } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -176,6 +176,7 @@ function ChartCard({
 
 function DashboardPage() {
   const { name } = useCurrentUser();
+  const navigate = useNavigate();
   const { data: kpis } = useDashboardKpis();
   const { data: evolution } = useAlertesEvolution(7);
   const { data: dashboard } = useAlertesDashboard({ limit: 50 });
@@ -215,16 +216,51 @@ function DashboardPage() {
     critiques: r.critiques,
   }));
 
+  const handleExport = () => {
+    const csvContent = [
+      ["Indicateur", "Valeur"],
+      ["Alertes totales", kpis?.alertes_totales ?? 0],
+      ["Alertes critiques", kpis?.critiques ?? 0],
+      ["Alertes en cours", kpis?.en_cours ?? 0],
+      ["Alertes resolues", kpis?.resolues ?? 0],
+      ["Temps moyen (s)", kpis?.temps_moyen_secondes ?? 0],
+      [],
+      ["ID Alerte", "Reference", "Titre", "Severite", "Statut", "Source", "Ville", "Region", "Date Detection"],
+      ...alerts.map(a => [
+        a.id,
+        a.reference ?? "",
+        a.titre ?? "",
+        a.severite ?? "",
+        a.statut ?? "",
+        a.source ?? "",
+        a.ville ?? "",
+        a.region ?? "",
+        a.detecte ?? ""
+      ])
+    ]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `dashboard-export-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <AppLayout
       title="Tableau de bord"
       subtitle="Vue opérationnelle · Toutes institutions"
       actions={
         <>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5">
+          <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={handleExport}>
             <Download className="h-3.5 w-3.5" /> Exporter
           </Button>
-          <Button size="sm" className="h-9 gap-1.5">
+          <Button size="sm" className="h-9 gap-1.5" onClick={() => navigate({ to: "/signalements" })}>
             <Plus className="h-3.5 w-3.5" /> Nouveau signalement
           </Button>
         </>
@@ -560,7 +596,7 @@ function DashboardPage() {
               <CardTitle className="text-[13.5px] font-semibold">
                 Alertes critiques récentes
               </CardTitle>
-              <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-[12px]">
+              <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-[12px]" onClick={() => navigate({ to: "/alertes" })}>
                 <Filter className="h-3.5 w-3.5" /> Filtres
               </Button>
             </CardHeader>

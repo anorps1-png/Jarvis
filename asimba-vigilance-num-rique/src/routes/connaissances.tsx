@@ -5,6 +5,15 @@ import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { BookOpen, Video, HelpCircle, Shield, ChevronRight, Search } from "lucide-react";
 import { useArticles } from "@/lib/queries/staff";
 
@@ -44,6 +53,7 @@ const faq = [
 function KnowledgePage() {
   const { data: articles, isLoading } = useArticles(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedArticle, setSelectedArticle] = useState<any | null>(null);
 
   const filtered = useMemo(() => {
     if (!articles) return [];
@@ -91,6 +101,7 @@ function KnowledgePage() {
               return (
                 <Card
                   key={a.id}
+                  onClick={() => setSelectedArticle(a)}
                   className="shadow-elev-1 group cursor-pointer hover:shadow-elev-2 transition-shadow"
                 >
                   <div className="h-32 relative bg-gradient-to-br from-primary/10 via-primary/5 to-info/10 border-b border-border rounded-t-xl flex items-center justify-center">
@@ -141,6 +152,48 @@ function KnowledgePage() {
           </div>
         </Card>
       </div>
+
+      <Dialog open={!!selectedArticle} onOpenChange={(open) => !open && setSelectedArticle(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          {selectedArticle && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Badge variant="outline">{selectedArticle.categorie}</Badge>
+                  <span className="text-[11.5px] text-muted-foreground">
+                    Lecture : {selectedArticle.duree_lecture_min ?? "?"} min
+                  </span>
+                </div>
+                <DialogTitle className="text-[18px] font-semibold leading-snug">
+                  {selectedArticle.titre}
+                </DialogTitle>
+                <DialogDescription className="text-[13px] leading-relaxed italic pt-1 border-b border-border pb-3">
+                  {selectedArticle.resume}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mt-4 space-y-4 text-[13px] leading-relaxed text-foreground">
+                <p>
+                  <strong>Introduction</strong> — À l'ère numérique actuelle, la diffusion rapide d'informations peut avoir des conséquences opérationnelles significatives au Cameroun. Cet article a pour but de fournir les connaissances de base et les procédures clés pour appréhender le sujet traité.
+                </p>
+                <p>
+                  <strong>Analyse détaillée</strong> — Pour approfondir la thématique, les experts préconisent d'examiner attentivement les sources, de vérifier la cohérence temporelle des données partagées et de recouper les faits avec des communiqués de presse officiels d'institutions comme l'ANTIC ou le MINCOM.
+                </p>
+                <p>
+                  <strong>Recommandations pratiques</strong> :
+                  <ul className="list-disc pl-5 mt-2 space-y-1.5">
+                    <li>Toujours vérifier l'URL d'origine avant de partager une information d'apparence institutionnelle.</li>
+                    <li>Signaler immédiatement tout contenu incitant à la haine ou à la violence via le formulaire de signalement ASIMBA.</li>
+                    <li>Sensibiliser vos équipes ou vos proches aux techniques courantes de manipulation sémantique.</li>
+                  </ul>
+                </p>
+              </div>
+              <DialogFooter className="mt-6 border-t border-border pt-3">
+                <Button onClick={() => setSelectedArticle(null)}>Fermer</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
