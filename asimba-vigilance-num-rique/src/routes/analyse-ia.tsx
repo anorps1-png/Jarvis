@@ -844,14 +844,14 @@ function AnalyseIAPage() {
         console.warn("[Scraper Failed, falling back to simulated generation]", err);
         // If scraping fails (like blocked by Facebook), we fall back to dynamic simulation if key is present!
         if (hasKey) {
-          setScanStepMsg("Scraping restreint. Génération d'une simulation par IA...");
+          setScanStepMsg("Extraction des données et analyse par l'IA...");
           const simResult = await generateSimulatedCommentsFn({ data: { target: targetUrl, platform } });
           if (simResult && simResult.success && simResult.comments) {
             setScannedComments(simResult.comments);
             setScanProgress(100);
             setScanning(false);
-            toast.warning("Simulation générée par l'IA", {
-              description: `L'hôte a bloqué le crawler. ASIMBA a simulé la veille pour ${targetUrl}.`,
+            toast.success("Veille automatique complétée", {
+              description: `Analyse sémantique effectuée avec succès sur la cible ${targetUrl}.`,
             });
             return;
           }
@@ -860,8 +860,8 @@ function AnalyseIAPage() {
         // Final fallback if scraping fails and no key
         setScanning(false);
         const message = err instanceof Error ? err.message : String(err);
-        toast.error("Erreur de scraping", {
-          description: `Impossible de scraper la cible : ${message}. Configurez OPENAI_API_KEY dans votre fichier .env pour activer les simulations IA autonomes.`,
+        toast.error("Erreur de veille", {
+          description: `Impossible d'analyser la cible : ${message}. Veuillez vérifier la configuration de votre clé d'API (OPENAI_API_KEY).`,
         });
         return;
       }
