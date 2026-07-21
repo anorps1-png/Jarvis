@@ -114,10 +114,48 @@ function LoginPage() {
             institutionnels pour offrir une intelligence unifiée aux autorités et partenaires du
             Cameroun.
           </p>
-          <div className="grid grid-cols-3 gap-3 pt-4 border-t border-sidebar-border">
-            <Stat label="Alertes / mois" value="1 284" />
-            <Stat label="Partenaires" value="24" />
-            <Stat label="Régions" value="10" />
+          <div className="space-y-3 pt-5 border-t border-sidebar-border">
+            <div className="flex items-start gap-3 rounded-lg border border-sidebar-border/60 bg-sidebar-accent/30 p-3 transition-colors hover:bg-sidebar-accent/50">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
+                <ShieldCheck className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="text-[12.5px] font-semibold text-sidebar-foreground">
+                  Veille & Fact-Checking
+                </div>
+                <div className="text-[11.5px] text-sidebar-muted leading-tight mt-0.5">
+                  Vérification structurée des informations virales et lutte contre la désinformation.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-lg border border-sidebar-border/60 bg-sidebar-accent/30 p-3 transition-colors hover:bg-sidebar-accent/50">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-info/15 text-info">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="text-[12.5px] font-semibold text-sidebar-foreground">
+                  Intelligence Augmentée
+                </div>
+                <div className="text-[11.5px] text-sidebar-muted leading-tight mt-0.5">
+                  Analyse multicritère assistée par l'IA pour trier et prioriser les menaces.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-lg border border-sidebar-border/60 bg-sidebar-accent/30 p-3 transition-colors hover:bg-sidebar-accent/50">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-success/15 text-success">
+                <Lock className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="text-[12.5px] font-semibold text-sidebar-foreground">
+                  Coordination Institutionnelle
+                </div>
+                <div className="text-[11.5px] text-sidebar-muted leading-tight mt-0.5">
+                  Canal d'alerte et suivi partagé en temps réel avec les acteurs autorisés.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         <div className="relative text-[11px] text-sidebar-muted">
@@ -271,15 +309,6 @@ function LoginPage() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-[22px] font-semibold tabular-nums text-sidebar-foreground">{value}</div>
-      <div className="text-[10.5px] uppercase tracking-wider text-sidebar-muted">{label}</div>
     </div>
   );
 }

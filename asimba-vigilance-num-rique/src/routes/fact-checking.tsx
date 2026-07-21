@@ -97,6 +97,10 @@ function FactPage() {
       if (res && res.success && res.data) {
         const aiData = res.data;
 
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
         // Insert into Supabase fact_checks table directly
         const { error } = await supabase
           .from("fact_checks")
@@ -109,6 +113,7 @@ function FactPage() {
             sources: aiData.sources || ["ASIMBA AI"],
             publie: true,
             publie_at: new Date().toISOString(),
+            auteur_id: user?.id ?? null,
           });
 
         if (error) {

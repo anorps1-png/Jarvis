@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { requireAuth, useCurrentUser } from "@/lib/auth";
 import { AppLayout, PageHeader, SeverityBadge, StatusPill } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +42,9 @@ import {
   ShieldAlert,
   Sparkles,
   Activity,
+  Search,
+  Megaphone,
+  ArrowRight,
 } from "lucide-react";
 import { formatTime } from "@/lib/mock-data";
 import {
@@ -56,18 +59,183 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
-  beforeLoad: ({ location }) => requireAuth(location),
   head: () => ({
     meta: [
-      { title: "Tableau de bord — ASIMBA" },
+      { title: "ASIMBA — Vigilance Numérique" },
       {
         name: "description",
-        content: "Vue d'ensemble opérationnelle des risques numériques détectés au Cameroun.",
+        content: "Signalez facilement un contenu douteux, suivez votre dossier, restez informé.",
       },
     ],
   }),
-  component: DashboardPage,
+  component: IndexPage,
 });
+
+function IndexPage() {
+  const { email, loading } = useCurrentUser();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm">
+        Chargement...
+      </div>
+    );
+  }
+
+  if (!email) {
+    return <PublicLandingPage />;
+  }
+
+  return <DashboardPage />;
+}
+
+function PublicLandingPage() {
+  const { data: kpis } = useDashboardKpis();
+
+  const traites =
+    kpis?.alertes_totales !== undefined && kpis?.alertes_totales !== null
+      ? String(kpis.alertes_totales)
+      : "--";
+  const enCours =
+    kpis?.en_cours !== undefined && kpis?.en_cours !== null ? String(kpis.en_cours) : "--";
+  const resolus =
+    kpis?.resolues !== undefined && kpis?.resolues !== null ? String(kpis.resolues) : "--";
+
+  return (
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
+      {/* Top Navbar */}
+      <header className="border-b border-border/70 bg-background/95 backdrop-blur px-6 py-3.5 flex items-center justify-between sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-[17px] shadow-sm">
+            A
+          </div>
+          <div>
+            <div className="text-[15px] font-extrabold tracking-tight text-foreground leading-none">
+              ASIMBA
+            </div>
+            <div className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase mt-1">
+              Vigilance Numérique
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Link
+            to="/connexion"
+            className="text-[13.5px] font-medium text-foreground hover:text-primary px-3 py-1.5 transition-colors"
+          >
+            Connexion
+          </Link>
+          <Link
+            to="/connexion"
+            search={{ redirect: "/" }}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground text-[13.5px] font-medium px-4 py-2 rounded-lg transition-colors shadow-sm"
+          >
+            Créer un compte
+          </Link>
+        </div>
+      </header>
+
+      {/* Hero Body */}
+      <main className="flex-1 mx-auto max-w-6xl w-full px-6 py-12 lg:py-16 space-y-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Hero Content */}
+          <div className="lg:col-span-7 space-y-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-1 text-[12px] font-semibold text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+              Service citoyen actif
+            </div>
+
+            <h1 className="text-[34px] sm:text-[40px] lg:text-[44px] font-bold text-foreground leading-[1.15] tracking-tight">
+              Signalez facilement un contenu douteux, suivez votre dossier, restez informé.
+            </h1>
+
+            <p className="text-[14.5px] sm:text-[15.5px] text-muted-foreground leading-relaxed">
+              ASIMBA vous permet de faire un signalement en quelques minutes, puis de suivre son traitement dans votre compte personnel. Vous consultez aussi des informations de fact-checking utiles et vérifiées.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <Link
+                to="/signalements"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 py-3 rounded-lg text-[14px] inline-flex items-center gap-2 shadow-sm transition-all hover:gap-2.5"
+              >
+                Commencer maintenant <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                to="/connexion"
+                className="bg-card hover:bg-accent border border-border text-foreground font-medium px-5 py-3 rounded-lg text-[14px] transition-colors"
+              >
+                J'ai déjà un compte
+              </Link>
+            </div>
+          </div>
+
+          {/* Right Useful Info Card */}
+          <div className="lg:col-span-5">
+            <Card className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm space-y-5">
+              <h3 className="text-[15px] font-bold text-foreground">
+                Informations utiles (aperçu public)
+              </h3>
+              <div className="space-y-4 text-[13.5px] text-muted-foreground leading-snug">
+                <div className="flex items-start gap-3">
+                  <Search className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                  <span>
+                    Les contenus douteux sont analysés puis vérifiés par des équipes habilitées.
+                  </span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <span>
+                    Votre compte vous donne accès au suivi de vos signalements et à votre historique.
+                  </span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Megaphone className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span>
+                    Le fact-checking public est volontairement limité pour éviter la sur-exposition de contenus sensibles.
+                  </span>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        {/* Bottom KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-4">
+          <Card className="p-5 rounded-xl border border-border/80 bg-card shadow-sm">
+            <div className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+              SIGNALEMENTS TRAITÉS
+            </div>
+            <div className="text-[32px] font-bold text-foreground my-1.5 tabular-nums">
+              {traites}
+            </div>
+            <div className="text-[12px] text-muted-foreground">Volume global traité</div>
+          </Card>
+
+          <Card className="p-5 rounded-xl border border-border/80 bg-card shadow-sm">
+            <div className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+              DOSSIERS EN COURS
+            </div>
+            <div className="text-[32px] font-bold text-foreground my-1.5 tabular-nums">
+              {enCours}
+            </div>
+            <div className="text-[12px] text-muted-foreground">Suivi actif</div>
+          </Card>
+
+          <Card className="p-5 rounded-xl border border-border/80 bg-card shadow-sm">
+            <div className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+              CAS RÉSOLUS
+            </div>
+            <div className="text-[32px] font-bold text-foreground my-1.5 tabular-nums">
+              {resolus}
+            </div>
+            <div className="text-[12px] text-muted-foreground">Traitements finalisés</div>
+          </Card>
+        </div>
+      </main>
+    </div>
+  );
+}
 
 const CHART_COLORS = [
   "var(--color-chart-1)",
