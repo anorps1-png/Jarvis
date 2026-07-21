@@ -306,6 +306,85 @@ Notes pour l'analyse :
     }
   });
 
+// Server-side simulated comments generator using Gemini
+const generateSimulatedCommentsFn = createServerFn({ method: "POST" })
+  .validator((input: { target: string; platform: string }) => {
+    if (typeof input.target !== "string" || typeof input.platform !== "string") {
+      throw new Error("Paramètres invalides.");
+    }
+    return input;
+  })
+  .handler(async ({ data: { target, platform } }) => {
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    if (!geminiKey) {
+      return { success: false, error: "Clé API non configurée." };
+    }
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: `Tu es un générateur de données de test pour la plateforme anti-désinformation ASIMBA au Cameroun.
+Génère une liste de 3 commentaires/publications réalistes et récents pour la source suivante :
+Plateforme : ${platform}
+Cible (Page/Compte/Hashtag) : ${target}
+
+Le contenu doit être ancré dans le contexte camerounais et lié au nom/sujet de la cible.
+Tu devez renvoyer UNIQUEMENT un tableau JSON contenant 3 objets. Ne mets aucun texte explicatif avant ou après le JSON.
+
+Format attendu :
+[
+  {
+    "author": "Nom complet réaliste (ex: Marc Eboa)",
+    "handle": "handle réaliste (ex: @marceboa)",
+    "text": "Le texte du commentaire en français, pidgin ou camfranglais",
+    "lang": "Français",
+    "score": 85,
+    "verdict": "faux",
+    "category": "Désinformation",
+    "conclusion": "Explication en français de 1 à 2 phrases.",
+    "sources": ["Source 1", "Source 2"],
+    "city": "Yaoundé",
+    "region": "Centre"
+  }
+]`,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: "application/json",
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Erreur API Gemini : ${response.statusText}`);
+      }
+
+      const resData = await response.json();
+      const rawText = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) throw new Error("Réponse de l'IA vide.");
+      
+      const parsed = JSON.parse(rawText.trim());
+      return {
+        success: true,
+        comments: parsed,
+      };
+    } catch (err: unknown) {
+      console.error("[Gemini Simulation Error]", err);
+      return { success: false, error: "Erreur lors de la génération." };
+    }
+  });
+
 export const Route = createFileRoute("/analyse-ia")({
   beforeLoad: ({ location }) => requireAuth(location),
   validateSearch: (search: Record<string, unknown>): { target?: string } => ({
@@ -622,14 +701,11 @@ function AnalyseIAPage() {
     setScannedComments([]);
     setFactcheckedIds({});
 
-    // Live Scraping Flow
-    if (platform === "scraping") {
-      if (!targetUrl.startsWith("http")) {
-        toast.error("Veuillez saisir une URL valide commençant par http:// ou https://");
-        setScanning(false);
-        return;
-      }
+    const hasKey = !!(import.meta.env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY);
+    const isUrl = targetUrl.trim().startsWith("http");
 
+    // 1. Live Scraping Flow (if target is a URL)
+    if (isUrl) {
       setScanStepMsg("Initialisation du scraper sur le serveur...");
       setScanProgress(15);
       await new Promise((r) => setTimeout(r, 600));
@@ -638,9 +714,9 @@ function AnalyseIAPage() {
       setScanProgress(45);
 
       try {
-        const result = await scrapeUrlFn({ data: targetUrl });
+        const result = await scrapeUrlFn({ data: targetUrl.trim() });
 
-        setScanStepMsg("Extraction des textes et analyse prédictive anti-infox...");
+        setScanStepMsg("Extraction des textes et analyse sémantique...");
         setScanProgress(80);
         await new Promise((r) => setTimeout(r, 700));
 
@@ -649,7 +725,6 @@ function AnalyseIAPage() {
         }
 
         let analyzed: ScannedComment[] = [];
-        const hasKey = !!(import.meta.env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY);
 
         if (hasKey) {
           setScanStepMsg("Analyse par l'IA réelle Gemini des extraits...");
@@ -686,18 +761,35 @@ function AnalyseIAPage() {
         toast.success("Scraping et analyse terminés", {
           description: `${analyzed.length} extraits analysés.`,
         });
+        return;
       } catch (err: unknown) {
-        console.error(err);
+        console.warn("[Scraper Failed, falling back to simulated generation]", err);
+        // If scraping fails (like blocked by Facebook), we fall back to dynamic simulation if key is present!
+        if (hasKey) {
+          setScanStepMsg("Scraping restreint. Génération d'une simulation par IA...");
+          const simResult = await generateSimulatedCommentsFn({ data: { target: targetUrl, platform } });
+          if (simResult && simResult.success && simResult.comments) {
+            setScannedComments(simResult.comments);
+            setScanProgress(100);
+            setScanning(false);
+            toast.warning("Simulation générée par l'IA", {
+              description: `L'hôte a bloqué le crawler. ASIMBA a simulé la veille pour ${targetUrl}.`,
+            });
+            return;
+          }
+        }
+        
+        // Final fallback if scraping fails and no key
         setScanning(false);
         const message = err instanceof Error ? err.message : String(err);
         toast.error("Erreur de scraping", {
-          description: `Impossible de scraper la cible : ${message}.`,
+          description: `Impossible de scraper la cible : ${message}. Configurez VITE_GEMINI_API_KEY pour activer les simulations IA autonomes.`,
         });
+        return;
       }
-      return;
     }
 
-    // Default API / Preset Simulation Flow
+    // 2. Default API / Preset Simulation Flow (not a URL)
     const steps = [
       { p: 15, msg: "Connexion sécurisée aux API de veille..." },
       { p: 35, msg: `Ingestion de la cible : ${targetUrl}...` },
@@ -744,18 +836,29 @@ function AnalyseIAPage() {
         toast.info("Analyse hors-ligne effectuée (Clé VITE_GEMINI_API_KEY absente).");
       }
     } else {
-      let key = "crtv";
-      if (targetUrl.toLowerCase().includes("mboa")) {
-        key = "mboabuzz";
-      } else if (
-        platform === "tiktok" ||
-        targetUrl.toLowerCase().includes("lycee") ||
-        targetUrl.toLowerCase().includes("biyem") ||
-        targetUrl.toLowerCase().includes("credit")
-      ) {
-        key = "lolycee";
+      // Dynamic Simulation with Gemini if key is present
+      if (hasKey) {
+        const simResult = await generateSimulatedCommentsFn({ data: { target: targetUrl, platform } });
+        if (simResult && simResult.success && simResult.comments) {
+          evaluatedComments = simResult.comments;
+        }
       }
-      evaluatedComments = presetComments[key] || presetComments.crtv;
+
+      if (evaluatedComments.length === 0) {
+        // Fallback to offline presets
+        let key = "crtv";
+        if (targetUrl.toLowerCase().includes("mboa")) {
+          key = "mboabuzz";
+        } else if (
+          platform === "tiktok" ||
+          targetUrl.toLowerCase().includes("lycee") ||
+          targetUrl.toLowerCase().includes("biyem") ||
+          targetUrl.toLowerCase().includes("credit")
+        ) {
+          key = "lolycee";
+        }
+        evaluatedComments = presetComments[key] || presetComments.crtv;
+      }
     }
 
     setScannedComments(evaluatedComments);
