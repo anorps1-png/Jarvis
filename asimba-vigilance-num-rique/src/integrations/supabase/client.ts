@@ -35,9 +35,8 @@ function createSupabaseClient() {
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    console.warn(`[Supabase] Missing environment variables. Falling back to simulated local mode.`);
-    SUPABASE_URL = "https://opmmqwpdvrcmlkwhqwiy.supabase.co";
-    SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy.key";
+    SUPABASE_URL = "https://fjsuhzgvoswdmwaowkcz.supabase.co";
+    SUPABASE_PUBLISHABLE_KEY = "sb_publishable_1rB6bxWaJBxJjGe3HIj_VA_HyGcL1sY";
   }
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
