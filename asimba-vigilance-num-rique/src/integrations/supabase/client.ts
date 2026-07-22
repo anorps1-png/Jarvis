@@ -34,7 +34,11 @@ function createSupabaseClient() {
   let SUPABASE_PUBLISHABLE_KEY =
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
 
-  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  if (
+    !SUPABASE_URL ||
+    !SUPABASE_PUBLISHABLE_KEY ||
+    !SUPABASE_URL.includes("fnopojzqbpicldxemhho")
+  ) {
     SUPABASE_URL = "https://fnopojzqbpicldxemhho.supabase.co";
     SUPABASE_PUBLISHABLE_KEY = "sb_publishable_qNjzlo1qwJX-CcaeymiqVA_z3qcMBoQ";
   }
